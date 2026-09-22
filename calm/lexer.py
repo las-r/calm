@@ -1,6 +1,6 @@
 import re
 
-# micro lexer
+# calm lexer
 # by las-r
 
 # regex pattern
@@ -8,8 +8,9 @@ REGEX = re.compile(r"""
     (?P<COMMENT>  //[^\n]*) |
     (?P<NUMBER>   \d+(?:\.\d+)?) |
     (?P<STRING>   "(?:\\.|[^"\\])*") |
-    (?P<KEYWORD>  \b(end|if|else|while|func|break|return|import)\b) |
-    (?P<OPER>     ==|<=|>=|&&|\|\||[+\-*/%<>~&^()!:=,\[\]]) |
+    (?P<KEYWORD>  \b(if|while|break|def|return|struct|extc)\b) |
+    (?P<OPER>     \.\.\.|<<|>>|==|!=|<=|>=|&&|\|\||[=,+\-*/%~&|^<>!]) |
+    (?P<BRACKET>  [\(\)\[\]\{\}]) |
     (?P<IDENT>    [a-zA-Z_]\w*) |
     (?P<SKIP>     [ \t\r\n]+) |
     (?P<MISMATCH> .)
@@ -45,3 +46,15 @@ def tokenize(code):
             raise SyntaxError(f"Unexpected token: {val}")
         tokens.append(val)
     return Tokens(tokens)
+
+if __name__ == "__main__":
+    code = """
+    extc def printf([u8] f, ...)
+
+    def i32 main() {
+        [u8] msg = "Hello, world!\n"
+        printf(msg)
+        return 0
+    }
+    """
+    print(tokenize(code).tokens)
