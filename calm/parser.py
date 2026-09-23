@@ -34,10 +34,16 @@ def istype(tokens):
 # atom parser
 def parseatom(tokens):
     # addr of
-    if tokens.peek() == "&":
+    if tokens.peek() == "@":
         tokens.eat()
         a = parseatom(tokens)
         return AddrOfNode(a)
+    
+    # deref
+    if tokens.peek() == "#":
+        tokens.eat()
+        a = parseatom(tokens)
+        return DerefNode(a)
 
     # unary ops
     if tokens.peek() in UNOPS:

@@ -9,7 +9,7 @@ REGEX = re.compile(r"""
     (?P<NUMBER>   \d+(?:\.\d+)?) |
     (?P<STRING>   "(?:\\.|[^"\\])*") |
     (?P<KEYWORD>  \b(if|while|break|def|return|struct|extc)\b) |
-    (?P<OPER>     \.\.\.|<<|>>|==|!=|<=|>=|&&|\|\||[=,+\-*/%~&|^<>!.:]) |
+    (?P<OPER>     \.\.\.|<<|>>|==|!=|<=|>=|&&|\|\||[=,+\-*/%~&|^<>!@#.:]) |
     (?P<BRACKET>  [\(\)\[\]\{\}]) |
     (?P<IDENT>    [a-zA-Z_]\w*) |
     (?P<SKIP>     [ \t\r\n]+) |

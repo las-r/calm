@@ -1,7 +1,7 @@
 extc def i32 printf([u8] f, ...)
 extc def i32 scanf([u8] f, ...)
 
-def i32 factorial(i32 n) {
+def u64 factorial(u64 n) {
     if n <= 1 {
         return 1
     }
@@ -9,9 +9,9 @@ def i32 factorial(i32 n) {
 }
 
 def i32 main() {
-    i32 n
+    u64 n
     printf("Enter n for n!: ")
-    scanf("%d", &n)
-    printf("n! = %d\n", factorial(n))
+    scanf("%lld", @n)
+    printf("n! = %llu\n", factorial(n))
     return 0
 }

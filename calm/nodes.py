@@ -26,25 +26,41 @@ def unescape(s):
         i += 1
     return "".join(out)
 
+# type helpers
 # coercion helper
-def coerce(ctx, val, targetty):
+def coerce(ctx, val, targetty, unsigned=False):
     if val.type == targetty:
         return val
-    if isinstance(targetty, (ir.FloatType, ir.DoubleType)) and isinstance(val.type, ir.IntType):
-        return ctx.builder.sitofp(val, targetty)
-    if isinstance(val.type, (ir.FloatType, ir.DoubleType)) and isinstance(targetty, ir.IntType):
-        return ctx.builder.fptosi(val, targetty)
-    if isinstance(targetty, (ir.FloatType, ir.DoubleType)) and isinstance(val.type, (ir.FloatType, ir.DoubleType)):
+    srcisfloat = isinstance(val.type, (ir.FloatType, ir.DoubleType))
+    dstisfloat = isinstance(targetty, (ir.FloatType, ir.DoubleType))
+    srcisint = isinstance(val.type, ir.IntType)
+    dstisint = isinstance(targetty, ir.IntType)
+    if dstisfloat and srcisint:
+        return ctx.builder.uitofp(val, targetty) if unsigned else ctx.builder.sitofp(val, targetty)
+    if dstisint and srcisfloat:
+        return ctx.builder.fptoui(val, targetty) if unsigned else ctx.builder.fptosi(val, targetty)
+    if dstisfloat and srcisfloat:
         if isinstance(targetty, ir.DoubleType):
             return ctx.builder.fpext(val, targetty)
         return ctx.builder.fptrunc(val, targetty)
-    if isinstance(targetty, ir.IntType) and isinstance(val.type, ir.IntType):
+    if dstisint and srcisint:
         if targetty.width > val.type.width:
-            return ctx.builder.sext(val, targetty)
+            return ctx.builder.zext(val, targetty) if unsigned else ctx.builder.sext(val, targetty)
         elif targetty.width < val.type.width:
             return ctx.builder.trunc(val, targetty)
         return val
     raise Exception(f"Cannot coerce {val.type} to {targetty}")
+
+def widertype(a, b):
+    def rank(ty) -> tuple:
+        if isinstance(ty, ir.DoubleType):
+            return (2, 0)
+        if isinstance(ty, ir.FloatType):
+            return (1, 0)
+        if isinstance(ty, ir.IntType):
+            return (0, ty.width)
+        return (-1, 0)
+    return a if rank(a) >= rank(b) else b
 
 # codegen context
 class Ctx:
@@ -228,10 +244,14 @@ class BinaryOpNode(Node):
         self.b = b
         self.isfloat = isfloat
         self.isunsigned = isunsigned
-
+        
     def codegen(self, ctx):
         a = self.a.codegen(ctx)
         b = self.b.codegen(ctx)
+        if a.type != b.type:
+            target = widertype(a.type, b.type)
+            a = coerce(ctx, a, target, unsigned=self.isunsigned)
+            b = coerce(ctx, b, target, unsigned=self.isunsigned)
         bld = ctx.builder
         if self.op == "+": return bld.fadd(a, b) if self.isfloat else bld.add(a, b)
         if self.op == "-": return bld.fsub(a, b) if self.isfloat else bld.sub(a, b)
@@ -357,8 +377,12 @@ class FunctionNode(Node):
         entry = func.append_basic_block("entry")
         savedbuilder = ctx.builder
         savedsymtable = ctx.symtable
+        savedrettype = getattr(ctx, "currentrettype", None)
+        savedrettypenode = getattr(ctx, "currentrettypenode", None)
         ctx.builder = ir.IRBuilder(entry)
         ctx.symtable = {}
+        ctx.currentrettype = fnty.return_type
+        ctx.currentrettypenode = self.rettype
         for arg, p in zip(func.args, self.params):
             arg.name = p.name
             ptr = ctx.builder.alloca(arg.type, name=p.name)
@@ -374,6 +398,8 @@ class FunctionNode(Node):
                 ctx.builder.ret(ir.Constant(fnty.return_type, 0))
         ctx.builder = savedbuilder
         ctx.symtable = savedsymtable
+        ctx.currentrettype = savedrettype
+        ctx.currentrettypenode = savedrettypenode
         return func
 
 class ParamNode:
@@ -396,9 +422,10 @@ class ExternFunctionNode(Node):
         return func
 
 class CallNode(Node):
-    def __init__(self, name, args):
+    def __init__(self, name, args, argtypes=None):
         self.name = name
         self.args = args
+        self.argtypes = argtypes
 
     def codegen(self, ctx):
         if self.name not in ctx.funcs:
@@ -410,10 +437,14 @@ class CallNode(Node):
         for i, a in enumerate(self.args):
             val = a.codegen(ctx)
             if fnty.var_arg and i >= numfixed:
+                argtype = self.argtypes[i] if self.argtypes and i < len(self.argtypes) else None
                 if isinstance(val.type, ir.FloatType):
                     val = ctx.builder.fpext(val, ir.DoubleType())
                 elif isinstance(val.type, ir.IntType) and val.type.width < 32:
-                    val = ctx.builder.sext(val, ir.IntType(32))
+                    if argtype is not None and argtype.isunsigned():
+                        val = ctx.builder.zext(val, ir.IntType(32))
+                    else:
+                        val = ctx.builder.sext(val, ir.IntType(32))
             args.append(val)
         return ctx.builder.call(func, args)
 
@@ -423,7 +454,13 @@ class ReturnNode(Node):
 
     def codegen(self, ctx):
         if self.expr is not None:
-            ctx.builder.ret(self.expr.codegen(ctx))
+            val = self.expr.codegen(ctx)
+            rettype = getattr(ctx, "currentrettype", None)
+            if rettype is not None and val.type != rettype:
+                rettypenode = getattr(ctx, "currentrettypenode", None)
+                unsigned = rettypenode.isunsigned() if rettypenode is not None else False
+                val = coerce(ctx, val, rettype, unsigned=unsigned)
+            ctx.builder.ret(val)
         else:
             ctx.builder.ret_void()
 
@@ -489,6 +526,17 @@ class AddrOfNode(Node):
 
     def codegen(self, ctx):
         return self.target.codegenptr(ctx)
+    
+class DerefNode(Node):
+    def __init__(self, target):
+        self.target = target
+
+    def codegen(self, ctx):
+        ptr = self.target.codegen(ctx)
+        return ctx.builder.load(ptr)
+
+    def codegenptr(self, ctx):
+        return self.target.codegen(ctx)
 
 # program root
 class ProgramNode(Node):
