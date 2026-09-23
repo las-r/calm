@@ -1,0 +1,2 @@
+extc def i32 printf([u8] f, ...)
+extc def i32 scanf([u8] f, ...)

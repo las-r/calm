@@ -1,16 +1,73 @@
-import sys
-import shutil
 import argparse
 import platform
+import re
+import shutil
 import subprocess
+import sys
 from pathlib import Path
 import llvmlite.ir as ir
 from . import lexer
 from . import parser
 from . import nodes
 
+# stdlib directory
+STDDIR = Path(__file__).parent / "std"
+
+# stdlib module finder
+def findstd(name):
+    path = STDDIR / f"{name}.cal"
+    if not path.is_file():
+        print(f"error: no such stdlib module: {name}", file=sys.stderr)
+        sys.exit(1)
+    return path
+
+# import resolver
+def resolveuse(infile: Path, code: str, seen=None):
+    seen = seen if seen is not None else set()
+    infile = infile.resolve()
+    if infile in seen:
+        return ""
+    seen.add(infile)
+    lines = code.splitlines()
+    resolved = []
+    i = 0
+    while i < len(lines):
+        stripped = lines[i].strip()
+        if stripped == "" or stripped.startswith("//"):
+            resolved.append(lines[i])
+            i += 1
+            continue
+        m = re.match(r';use\s+"([^"]+)"\s*$', stripped)
+        if m:
+            incpath = (infile.parent / m.group(1)).resolve()
+            if not incpath.is_file():
+                print(f"error: no such file: {incpath}", file=sys.stderr)
+                sys.exit(1)
+            resolved.append(resolveuse(incpath, incpath.read_text(encoding="utf-8"), seen))
+            i += 1
+            continue
+        m = re.match(r';use\s+(\w+)\s*$', stripped)
+        if m:
+            incpath = findstd(m.group(1))
+            resolved.append(resolveuse(incpath, incpath.read_text(encoding="utf-8"), seen))
+            i += 1
+            continue
+        if stripped.startswith(";use"):
+            print(f"error: malformed ;use directive: {stripped!r}", file=sys.stderr)
+            sys.exit(1)
+        break
+    for n, line in enumerate(lines[i:], start=i + 1):
+        if line.strip().startswith(";use"):
+            print(
+                f"error: {infile}:{n}: ';use' must appear before any other code",
+                file=sys.stderr,
+            )
+            sys.exit(1)
+    resolved.append("\n".join(lines[i:]))
+    return "\n".join(resolved)
+
 # find clang compiler
-def fclang():
+def findclang():
     found = shutil.which("clang")
     if found:
         return found
@@ -36,7 +93,7 @@ def dtt():
     machine = platform.machine().lower()
     arch = "x86_64" if machine in ("x86_64", "amd64") else machine
     if sys.platform == "win32":
-        return f"{arch}-w64-windows-gnu"
+        return f"{arch}-w64-mingw32"
     if sys.platform == "darwin":
         return f"{arch}-apple-darwin"
     return f"{arch}-unknown-linux-gnu"
@@ -46,7 +103,8 @@ def compilef(infile: Path, keep_llvmir: bool):
     if not infile.is_file():
         print(f"error: no such file: {infile}", file=sys.stderr)
         sys.exit(1)
-    code = infile.read_text(encoding="utf-8")
+    raw = infile.read_text(encoding="utf-8")
+    code = resolveuse(infile, raw)
 
     # parse code
     tokens = lexer.tokenize(code)
@@ -65,7 +123,7 @@ def compilef(infile: Path, keep_llvmir: bool):
     llfile.write_text(str(module), encoding="utf-8")
 
     # find clang
-    clang = fclang()
+    clang = findclang()
     if clang is None:
         print(
             "error: could not find 'clang'. Install LLVM/Clang and make sure "
