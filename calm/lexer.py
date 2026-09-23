@@ -46,16 +46,3 @@ def tokenize(code):
             raise SyntaxError(f"Unexpected token: {val}")
         tokens.append(val)
     return Tokens(tokens)
-
-# test
-if __name__ == "__main__":
-    code = """
-        extc def printf([u8] f, ...)
-
-        def i32 main() {
-            [u8] msg = "Hello, world!\n"
-            printf(msg)
-            return 0
-        }
-    """
-    print(tokenize(code).tokens)
