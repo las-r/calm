@@ -1,0 +1,18 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "calm"
+version = "1.0.0"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "llvmlite>=0.39.0",
+]
+
+[project.scripts]
+micro = "calm.__main__:main"
+
+[tool.setuptools.packages.find]
+include = ["calm*"]
