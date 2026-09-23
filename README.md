@@ -4,6 +4,19 @@ A minimal, C-like compiled programming language.
 ## Overview
 CALM is a small, statically-typed, compiled language with C-like syntax. It compiles to LLVM IR, which is then handed to `clang` to produce a native executable.
 
+## Getting Started
+### Installation
+```sh
+pip install git+https://github.com/las-r/calm
+```
+
+### Usage
+```sh
+calm run yourfile.cal            # builds exe, runs it, then deletes after
+calm build yourfile.cal          # builds exe
+calm build yourfile.cal --llvmir # builds exe and saves .ll file
+```
+
 ## Syntax & Basics
 ### Comments
 ```
