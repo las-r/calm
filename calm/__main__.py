@@ -9,7 +9,7 @@ from . import lexer
 from . import parser
 from . import nodes
 
-
+# find clang compiler
 def fclang():
     found = shutil.which("clang")
     if found:
@@ -31,7 +31,7 @@ def fclang():
             return c
     return None
 
-
+# target triple
 def dtt():
     machine = platform.machine().lower()
     arch = "x86_64" if machine in ("x86_64", "amd64") else machine
@@ -41,7 +41,7 @@ def dtt():
         return f"{arch}-apple-darwin"
     return f"{arch}-unknown-linux-gnu"
 
-
+# compile
 def compilef(infile: Path, keep_llvmir: bool):
     if not infile.is_file():
         print(f"error: no such file: {infile}", file=sys.stderr)
@@ -92,7 +92,7 @@ def compilef(infile: Path, keep_llvmir: bool):
 
     return exe
 
-
+# main
 def main():
     argparser = argparse.ArgumentParser(prog="calm", description="The calm compiler")
     subparsers = argparser.add_subparsers(dest="command")
