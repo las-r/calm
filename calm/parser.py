@@ -153,7 +153,10 @@ def parsestmt(tokens):
         ebody = None
         if tokens.peek() == "else":
             tokens.eat()
-            ebody = parseblock(tokens)
+            if tokens.peek() == "if":
+                ebody = [parsestmt(tokens)]
+            else:
+                ebody = parseblock(tokens)
         return IfNode(cond, body, ebody)
 
     # while statement
