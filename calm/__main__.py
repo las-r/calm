@@ -46,7 +46,6 @@ def compilef(infile: Path, keep_llvmir: bool):
     if not infile.is_file():
         print(f"error: no such file: {infile}", file=sys.stderr)
         sys.exit(1)
-
     code = infile.read_text(encoding="utf-8")
 
     # parse code
@@ -103,17 +102,17 @@ def main():
     runparser = subparsers.add_parser("run", help="compile a .cal file, run it, then delete the executable")
     runparser.add_argument("file", help="path to the .cal source file")
     runparser.add_argument("--llvmir", action="store_true", help="keep the generated .ll file")
-    argparser.add_argument("file", nargs="?", help=argparse.SUPPRESS)
-    argparser.add_argument("--llvmir", action="store_true", help=argparse.SUPPRESS)
+    argparser.add_argument("bare_file", nargs="?", default=None, help=argparse.SUPPRESS)
+    argparser.add_argument("--llvmir", dest="bare_llvmir", action="store_true", help=argparse.SUPPRESS)
     args = argparser.parse_args()
 
     if args.command is None:
-        if args.file is None:
+        if args.bare_file is None:
             argparser.print_usage(sys.stderr)
             sys.exit(1)
         command = "build"
-        file = args.file
-        llvmir = args.llvmir
+        file = args.bare_file
+        llvmir = args.bare_llvmir
     else:
         command = args.command
         file = args.file
