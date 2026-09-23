@@ -3,15 +3,41 @@ from .nodes import *
 # calm parser
 # by las-r
 
-# operator and type lists
 UNOPS = ["-", "~", "!"]
 BINOPS = ["+", "-", "*", "/", "%", "&", "|", "^", "<<", ">>",
           "==", "!=", "<=", ">=", "<", ">", "&&", "||"]
 BUILTINTYPES = ["i8", "i16", "i32", "i64", "u8", "u16", "u32", "u64",
                 "f32", "f64", "void"]
 
-# dynamic types set
 knowntypes = set(BUILTINTYPES)
+
+# small helpers
+def expect(tokens, tok, errmsg):
+    if tokens.peek() == tok:
+        tokens.eat()
+    else:
+        raise SyntaxError(errmsg)
+    
+def istype(tokens):
+    tok = tokens.peek()
+    return tok == "[" or tok in knowntypes
+
+# list parser
+def parselist(tokens, closer, parseitem):
+    items = []
+    if tokens.peek() != closer:
+        items.append(parseitem(tokens))
+        while tokens.peek() == ",":
+            tokens.eat()
+            items.append(parseitem(tokens))
+    return items
+
+# braced parser
+def parsebraced(tokens, opener, closer, errname, parseitem):
+    expect(tokens, opener, f"Expected opening '{opener}' in {errname}")
+    items = parselist(tokens, closer, parseitem)
+    expect(tokens, closer, f"Expected closing '{closer}' in {errname}")
+    return items
 
 # type parser
 def parsetype(tokens):
@@ -20,67 +46,47 @@ def parsetype(tokens):
         tokens.eat()
         slicedepth += 1
     name = tokens.eat()
-    for i in range(slicedepth):
-        if tokens.peek() == "]":
-            tokens.eat()
-        else:
-            raise SyntaxError("Expected closing ']' in type")
+    for _ in range(slicedepth):
+        expect(tokens, "]", "Expected closing ']' in type")
     return TypeNode(name, slicedepth)
 
-def istype(tokens):
-    tok = tokens.peek()
-    return tok == "[" or tok in knowntypes
+# struct literal parser
+def parsestructliteral(tokens, structname):
+    values = parsebraced(tokens, "{", "}", "struct literal", parseexpr)
+    return StructLiteralNode(structname, values)
+
+# postfix parser
+def parsepostfix(tokens, node):
+    while tokens.peek() in (".", ":"):
+        if tokens.peek() == ".":
+            tokens.eat()
+            node = FieldAccessNode(node, tokens.eat())
+        else:
+            tokens.eat()
+            node = IndexNode(node, parseatom(tokens))
+    return node
 
 # atom parser
 def parseatom(tokens):
-    # addr of
     if tokens.peek() == "@":
         tokens.eat()
-        a = parseatom(tokens)
-        return AddrOfNode(a)
-    
-    # deref
+        return AddrOfNode(parseatom(tokens))
     if tokens.peek() == "#":
         tokens.eat()
-        a = parseatom(tokens)
-        return DerefNode(a)
-
-    # unary ops
+        return DerefNode(parseatom(tokens))
     if tokens.peek() in UNOPS:
         op = tokens.eat()
-        a = parseatom(tokens)
-        return UnaryOpNode(op, a)
-
-    # parentheses
+        return UnaryOpNode(op, parseatom(tokens))
     if tokens.peek() == "(":
         tokens.eat()
         expr = parseexpr(tokens)
-        if tokens.peek() == ")":
-            tokens.eat()
-        else:
-            raise SyntaxError("Expected closing ')'")
-        node = expr
-        while tokens.peek() in (".", ":"):
-            tokens.eat()
-            iexpr = parseatom(tokens)
-            node = IndexNode(node, iexpr)
-        return node
+        expect(tokens, ")", "Expected closing ')'")
+        return parsepostfix(tokens, expr)
 
     # literal, variable, and function call
     tok = tokens.eat()
     if tok in knowntypes and tokens.peek() == "{":
-        tokens.eat()
-        values = []
-        if tokens.peek() != "}":
-            values.append(parseexpr(tokens))
-            while tokens.peek() == ",":
-                tokens.eat()
-                values.append(parseexpr(tokens))
-        if tokens.peek() == "}":
-            tokens.eat()
-        else:
-            raise SyntaxError("Expected closing '}' in struct literal")
-        node = StructLiteralNode(tok, values)
+        node = parsestructliteral(tokens, tok)
     elif tok.startswith('"') and tok.endswith('"'):
         node = StrLiteralNode(tok[1:-1])
     else:
@@ -92,32 +98,13 @@ def parseatom(tokens):
             except ValueError:
                 if tokens.peek() == "(":
                     tokens.eat()
-                    args = []
-                    if tokens.peek() != ")":
-                        args.append(parseexpr(tokens))
-                        while tokens.peek() == ",":
-                            tokens.eat()
-                            args.append(parseexpr(tokens))
-                    if tokens.peek() == ")":
-                        tokens.eat()
-                    else:
-                        raise SyntaxError(f"Expected closing ')' in call '{tok}'")
+                    args = parselist(tokens, ")", parseexpr)
+                    expect(tokens, ")", f"Expected closing ')' in call '{tok}'")
                     node = CallNode(tok, args)
                 else:
                     node = VarRefNode(tok)
 
-    # field access and indexing
-    while tokens.peek() in (".", ":"):
-        if tokens.peek() == ".":
-            tokens.eat()
-            field = tokens.eat()
-            node = FieldAccessNode(node, field)
-        else:
-            tokens.eat()
-            iexpr = parseatom(tokens)
-            node = IndexNode(node, iexpr)
-
-    return node
+    return parsepostfix(tokens, node)
 
 # expression parser
 def parseexpr(tokens):
@@ -131,82 +118,54 @@ def parseexpr(tokens):
 # block parser
 def parseblock(tokens):
     body = []
-    if tokens.peek() == "{":
-        tokens.eat()
-    else:
-        raise SyntaxError("Expected opening '{'")
+    expect(tokens, "{", "Expected opening '{'")
     while tokens.can_eat() and tokens.peek() != "}":
         body.append(parsestmt(tokens))
-    if tokens.peek() == "}":
-        tokens.eat()
-    else:
-        raise SyntaxError("Expected closing '}'")
+    expect(tokens, "}", "Expected closing '}'")
     return body
 
 # statement parser
 def parsestmt(tokens):
-    # if statement
-    if tokens.peek() == "if":
+    kw = tokens.peek()
+
+    if kw == "if":
         tokens.eat()
         cond = parseexpr(tokens)
         body = parseblock(tokens)
         ebody = None
         if tokens.peek() == "else":
             tokens.eat()
-            if tokens.peek() == "if":
-                ebody = [parsestmt(tokens)]
-            else:
-                ebody = parseblock(tokens)
+            ebody = [parsestmt(tokens)] if tokens.peek() == "if" else parseblock(tokens)
         return IfNode(cond, body, ebody)
-
-    # while statement
-    if tokens.peek() == "while":
+    if kw == "while":
         tokens.eat()
         cond = parseexpr(tokens)
-        body = parseblock(tokens)
-        return WhileNode(cond, body)
-
-    # break statement
-    if tokens.peek() == "break":
+        return WhileNode(cond, parseblock(tokens))
+    if kw == "break":
         tokens.eat()
         return BreakNode()
-
-    # function definition statement
-    if tokens.peek() == "def":
+    if kw == "def":
         tokens.eat()
         rettype = parsetype(tokens)
         name = tokens.eat()
         params = parseparams(tokens)
-        body = parseblock(tokens)
-        return FunctionNode(rettype, name, params, body)
-
-    # extern function statement
-    if tokens.peek() == "extc":
+        return FunctionNode(rettype, name, params, parseblock(tokens))
+    if kw == "extc":
         tokens.eat()
-        if tokens.peek() == "def":
-            tokens.eat()
-        else:
-            raise SyntaxError("Expected 'def' after 'extc'")
+        expect(tokens, "def", "Expected 'def' after 'extc'")
         rettype = parsetype(tokens)
         name = tokens.eat()
         params, variadic = parseexternparams(tokens)
         return ExternFunctionNode(rettype, name, params, variadic)
-
-    # struct definition statement
-    if tokens.peek() == "struct":
+    if kw == "struct":
         tokens.eat()
         name = tokens.eat()
         fields = parsefields(tokens)
         knowntypes.add(name)
         return StructNode(name, fields)
-
-    # return statement
-    if tokens.peek() == "return":
+    if kw == "return":
         tokens.eat()
-        if tokens.can_eat() and tokens.peek() not in ("}", "else"):
-            expr = parseexpr(tokens)
-        else:
-            expr = None
+        expr = parseexpr(tokens) if tokens.can_eat() and tokens.peek() not in ("}", "else") else None
         return ReturnNode(expr)
 
     # declaration
@@ -216,10 +175,7 @@ def parsestmt(tokens):
         value = None
         if tokens.peek() == "=":
             tokens.eat()
-            if tokens.peek() == "{":
-                value = parsestructliteral(tokens, vartype.name)
-            else:
-                value = parseexpr(tokens)
+            value = parsestructliteral(tokens, vartype.name) if tokens.peek() == "{" else parseexpr(tokens)
         return VarDeclNode(vartype, name, value)
 
     # assignment or fallback expression
@@ -235,93 +191,43 @@ def parsestmt(tokens):
 
     return lhs
 
-# struct literal parser
-def parsestructliteral(tokens, structname):
-    tokens.eat()
-    values = []
-    if tokens.peek() != "}":
-        values.append(parseexpr(tokens))
-        while tokens.peek() == ",":
-            tokens.eat()
-            values.append(parseexpr(tokens))
-    if tokens.peek() == "}":
-        tokens.eat()
-    else:
-        raise SyntaxError("Expected closing '}' in struct literal")
-    return StructLiteralNode(structname, values)
-
-# param list parser
-def parseparams(tokens):
-    params = []
-    if tokens.peek() == "(":
-        tokens.eat()
-        if tokens.peek() != ")":
-            params.append(parseparam(tokens))
-            while tokens.peek() == ",":
-                tokens.eat()
-                params.append(parseparam(tokens))
-        if tokens.peek() == ")":
-            tokens.eat()
-        else:
-            raise SyntaxError("Expected closing ')' in parameter list")
-    return params
-
-# param parser
+# param parsers
 def parseparam(tokens):
     ptype = parsetype(tokens)
-    name = tokens.eat()
-    return ParamNode(ptype, name)
+    return ParamNode(ptype, tokens.eat())
 
-# extern param list parser
+def parseparams(tokens):
+    if tokens.peek() != "(":
+        return []
+    return parsebraced(tokens, "(", ")", "parameter list", parseparam)
+
 def parseexternparams(tokens):
-    params = []
-    variadic = False
-    if tokens.peek() == "(":
-        tokens.eat()
-        if tokens.peek() != ")":
+    params, variadic = [], False
+    if tokens.peek() != "(":
+        return params, variadic
+    tokens.eat()
+    if tokens.peek() != ")":
+        while True:
             if tokens.peek() == "...":
                 tokens.eat()
                 variadic = True
-            else:
-                params.append(parseparam(tokens))
-                while tokens.peek() == ",":
-                    tokens.eat()
-                    if tokens.peek() == "...":
-                        tokens.eat()
-                        variadic = True
-                        break
-                    params.append(parseparam(tokens))
-        if tokens.peek() == ")":
+                break
+            params.append(parseparam(tokens))
+            if tokens.peek() != ",":
+                break
             tokens.eat()
-        else:
-            raise SyntaxError("Expected closing ')' in extern parameter list")
+    expect(tokens, ")", "Expected closing ')' in extern parameter list")
     return params, variadic
 
-# struct field list parser
-def parsefields(tokens):
-    fields = []
-    if tokens.peek() == "{":
-        tokens.eat()
-    else:
-        raise SyntaxError("Expected opening '{' in struct definition")
-    if tokens.peek() != "}":
-        fields.append(parsefield(tokens))
-        while tokens.peek() == ",":
-            tokens.eat()
-            fields.append(parsefield(tokens))
-    if tokens.peek() == "}":
-        tokens.eat()
-    else:
-        raise SyntaxError("Expected closing '}' in struct definition")
-    return fields
-
-# field parser
+# struct field parsers
 def parsefield(tokens):
     ftype = parsetype(tokens)
-    name = tokens.eat()
-    return FieldNode(ftype, name)
+    return FieldNode(ftype, tokens.eat())
 
-# parser
+def parsefields(tokens):
+    return parsebraced(tokens, "{", "}", "struct definition", parsefield)
+
+# main parser
 def parse(tokens):
     decls = []
     while tokens.can_eat():
