@@ -404,7 +404,17 @@ class CallNode(Node):
         if self.name not in ctx.funcs:
             raise Exception(f"Undefined function: {self.name}")
         func = ctx.funcs[self.name]
-        args = [a.codegen(ctx) for a in self.args]
+        fnty = func.function_type
+        numfixed = len(fnty.args)
+        args = []
+        for i, a in enumerate(self.args):
+            val = a.codegen(ctx)
+            if fnty.var_arg and i >= numfixed:
+                if isinstance(val.type, ir.FloatType):
+                    val = ctx.builder.fpext(val, ir.DoubleType())
+                elif isinstance(val.type, ir.IntType) and val.type.width < 32:
+                    val = ctx.builder.sext(val, ir.IntType(32))
+            args.append(val)
         return ctx.builder.call(func, args)
 
 class ReturnNode(Node):
