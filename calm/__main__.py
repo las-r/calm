@@ -1,5 +1,6 @@
 import sys
 import shutil
+import argparse
 import platform
 import subprocess
 from pathlib import Path
@@ -9,7 +10,7 @@ from . import parser
 from . import nodes
 
 
-def find_clang():
+def fclang():
     found = shutil.which("clang")
     if found:
         return found
@@ -31,7 +32,7 @@ def find_clang():
     return None
 
 
-def default_target_triple():
+def dtt():
     machine = platform.machine().lower()
     arch = "x86_64" if machine in ("x86_64", "amd64") else machine
     if sys.platform == "win32":
@@ -41,15 +42,11 @@ def default_target_triple():
     return f"{arch}-unknown-linux-gnu"
 
 
-def main():
-    # get file
-    if len(sys.argv) < 2:
-        print("usage: python -m calm <file.cal>")
-        return
-    infile = Path(sys.argv[1]).resolve()
+def compilef(infile: Path, keep_llvmir: bool):
     if not infile.is_file():
         print(f"error: no such file: {infile}", file=sys.stderr)
         sys.exit(1)
+
     code = infile.read_text(encoding="utf-8")
 
     # parse code
@@ -57,20 +54,25 @@ def main():
     program = parser.parse(tokens)
 
     # compile to ir
-    triple = default_target_triple()
+    triple = dtt()
     module = ir.Module(name=str(infile))
     module.triple = triple
     builder = ir.IRBuilder()
     ctx = nodes.Ctx(module, builder)
     program.codegen(ctx)
+
     base = infile.with_suffix("")
     llfile = base.with_suffix(".ll")
     llfile.write_text(str(module), encoding="utf-8")
 
     # find clang
-    clang = find_clang()
+    clang = fclang()
     if clang is None:
-        print("error: could not find 'clang'. Install LLVM/Clang and make sure it's on your PATH, or install it to a standard location.", file=sys.stderr)
+        print(
+            "error: could not find 'clang'. Install LLVM/Clang and make sure "
+            "it's on your PATH, or install it to a standard location.",
+            file=sys.stderr,
+        )
         sys.exit(1)
 
     # build to exe
@@ -84,9 +86,48 @@ def main():
         print(result.stderr, file=sys.stderr)
         sys.exit(1)
 
-    llfile.unlink()
-    print(f"Output: {exe}")
+    if keep_llvmir:
+        print(f"LLVM IR: {llfile}")
+    else:
+        llfile.unlink()
 
+    return exe
+
+
+def main():
+    argparser = argparse.ArgumentParser(prog="calm", description="The calm compiler")
+    subparsers = argparser.add_subparsers(dest="command")
+    buildparser = subparsers.add_parser("build", help="compile a .cal file to an executable")
+    buildparser.add_argument("file", help="path to the .cal source file")
+    buildparser.add_argument("--llvmir", action="store_true", help="keep the generated .ll file")
+    runparser = subparsers.add_parser("run", help="compile a .cal file, run it, then delete the executable")
+    runparser.add_argument("file", help="path to the .cal source file")
+    runparser.add_argument("--llvmir", action="store_true", help="keep the generated .ll file")
+    argparser.add_argument("file", nargs="?", help=argparse.SUPPRESS)
+    argparser.add_argument("--llvmir", action="store_true", help=argparse.SUPPRESS)
+    args = argparser.parse_args()
+
+    if args.command is None:
+        if args.file is None:
+            argparser.print_usage(sys.stderr)
+            sys.exit(1)
+        command = "build"
+        file = args.file
+        llvmir = args.llvmir
+    else:
+        command = args.command
+        file = args.file
+        llvmir = args.llvmir
+
+    infile = Path(file).resolve()
+    exe = compilef(infile, keep_llvmir=llvmir)
+
+    if command == "build":
+        print(f"Output: {exe}")
+    elif command == "run":
+        result = subprocess.run([str(exe)])
+        exe.unlink()
+        sys.exit(result.returncode)
 
 if __name__ == "__main__":
     main()

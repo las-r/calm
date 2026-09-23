@@ -481,6 +481,14 @@ class FieldAccessNode(Node):
         zero = ir.Constant(ir.IntType(32), 0)
         fieldidx = ir.Constant(ir.IntType(32), idx)
         return ctx.builder.gep(objptr, [zero, fieldidx], inbounds=True)
+    
+# pointer nodes
+class AddrOfNode(Node):
+    def __init__(self, target):
+        self.target = target
+
+    def codegen(self, ctx):
+        return self.target.codegenptr(ctx)
 
 # program root
 class ProgramNode(Node):

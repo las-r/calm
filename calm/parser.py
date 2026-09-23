@@ -3,14 +3,14 @@ from .nodes import *
 # calm parser
 # by las-r
 
-# operator lists
+# operator and type lists
 UNOPS = ["-", "~", "!"]
 BINOPS = ["+", "-", "*", "/", "%", "&", "|", "^", "<<", ">>",
           "==", "!=", "<=", ">=", "<", ">", "&&", "||"]
 BUILTINTYPES = ["i8", "i16", "i32", "i64", "u8", "u16", "u32", "u64",
                 "f32", "f64", "void"]
 
-# knowntypes gets seeded with builtins and grows as struct defs are parsed
+# dynamic types set
 knowntypes = set(BUILTINTYPES)
 
 # type parser
@@ -33,6 +33,12 @@ def istype(tokens):
 
 # atom parser
 def parseatom(tokens):
+    # addr of
+    if tokens.peek() == "&":
+        tokens.eat()
+        a = parseatom(tokens)
+        return AddrOfNode(a)
+
     # unary ops
     if tokens.peek() in UNOPS:
         op = tokens.eat()
