@@ -10,10 +10,12 @@ from . import lexer
 from . import parser
 from . import nodes
 
-# stdlib directory
+# stdlib path and regex
 STDDIR = Path(__file__).parent / "std"
+USESTRRE = re.compile(r';use\s+"([^"]+)"\s*$')
+USEIDRE = re.compile(r';use\s+(\w+)\s*$')
 
-# stdlib module finder
+# stdlib finder
 def findstd(name):
     path = STDDIR / f"{name}.cal"
     if not path.is_file():
@@ -22,8 +24,9 @@ def findstd(name):
     return path
 
 # import resolver
-def resolveuse(infile: Path, code: str, seen=None):
-    seen = seen if seen is not None else set()
+def resolveuse(infile, code, seen: set | None = None):
+    if seen is None:
+        seen = set()
     infile = infile.resolve()
     if infile in seen:
         return ""
@@ -31,24 +34,26 @@ def resolveuse(infile: Path, code: str, seen=None):
     lines = code.splitlines()
     resolved = []
     i = 0
-    while i < len(lines):
-        stripped = lines[i].strip()
-        if stripped == "" or stripped.startswith("//"):
-            resolved.append(lines[i])
+    nlines = len(lines)
+    while i < nlines:
+        line = lines[i]
+        stripped = line.strip()
+        if not stripped or stripped.startswith("//"):
+            resolved.append(line)
             i += 1
             continue
-        m = re.match(r';use\s+"([^"]+)"\s*$', stripped)
-        if m:
-            incpath = (infile.parent / m.group(1)).resolve()
+        mstr = USESTRRE.match(stripped)
+        if mstr:
+            incpath = (infile.parent / mstr.group(1)).resolve()
             if not incpath.is_file():
                 print(f"error: no such file: {incpath}", file=sys.stderr)
                 sys.exit(1)
             resolved.append(resolveuse(incpath, incpath.read_text(encoding="utf-8"), seen))
             i += 1
             continue
-        m = re.match(r';use\s+(\w+)\s*$', stripped)
-        if m:
-            incpath = findstd(m.group(1))
+        mid = USEIDRE.match(stripped)
+        if mid:
+            incpath = findstd(mid.group(1))
             resolved.append(resolveuse(incpath, incpath.read_text(encoding="utf-8"), seen))
             i += 1
             continue
@@ -66,29 +71,22 @@ def resolveuse(infile: Path, code: str, seen=None):
     resolved.append("\n".join(lines[i:]))
     return "\n".join(resolved)
 
-# find clang compiler
+# clang finder
 def findclang():
     found = shutil.which("clang")
     if found:
         return found
-    candidates = []
-    if sys.platform == "win32":
-        candidates += [
-            r"C:\Program Files\LLVM\bin\clang.exe",
-            r"C:\Program Files (x86)\LLVM\bin\clang.exe",
-        ]
-    else:
-        candidates += [
-            "/usr/bin/clang",
-            "/usr/local/bin/clang",
-            "/opt/homebrew/opt/llvm/bin/clang",
-        ]
+    candidates = (
+        (r"C:\Program Files\LLVM\bin\clang.exe", r"C:\Program Files (x86)\LLVM\bin\clang.exe")
+        if sys.platform == "win32"
+        else ("/usr/bin/clang", "/usr/local/bin/clang", "/opt/homebrew/opt/llvm/bin/clang")
+    )
     for c in candidates:
         if Path(c).is_file():
             return c
     return None
 
-# target triple
+# target triple detector
 def dtt():
     machine = platform.machine().lower()
     arch = "x86_64" if machine in ("x86_64", "amd64") else machine
@@ -98,8 +96,8 @@ def dtt():
         return f"{arch}-apple-darwin"
     return f"{arch}-unknown-linux-gnu"
 
-# compile
-def compilef(infile: Path, keep_llvmir: bool):
+# compiler
+def compilef(infile: Path, keep_llvmir: bool) -> Path:
     if not infile.is_file():
         print(f"error: no such file: {infile}", file=sys.stderr)
         sys.exit(1)
@@ -110,14 +108,13 @@ def compilef(infile: Path, keep_llvmir: bool):
     tokens = lexer.tokenize(code)
     program = parser.parse(tokens)
 
-    # compile to ir
+    # compile to IR
     triple = dtt()
     module = ir.Module(name=str(infile))
     module.triple = triple
     builder = ir.IRBuilder()
     ctx = nodes.Ctx(module, builder)
     program.codegen(ctx)
-
     base = infile.with_suffix("")
     llfile = base.with_suffix(".ll")
     llfile.write_text(str(module), encoding="utf-8")
@@ -132,22 +129,21 @@ def compilef(infile: Path, keep_llvmir: bool):
         )
         sys.exit(1)
 
-    # build to exe
+    # build executable
     exe = base.with_suffix(".exe" if sys.platform == "win32" else "")
     result = subprocess.run(
         [clang, str(llfile), "-o", str(exe), f"--target={triple}"],
-        capture_output=True, text=True,
+        capture_output=True,
+        text=True,
     )
     if result.returncode != 0:
         print("clang build failed:", file=sys.stderr)
         print(result.stderr, file=sys.stderr)
         sys.exit(1)
-
     if keep_llvmir:
         print(f"LLVM IR: {llfile}")
     else:
         llfile.unlink()
-
     return exe
 
 # main
@@ -168,17 +164,12 @@ def main():
         if args.bare_file is None:
             argparser.print_usage(sys.stderr)
             sys.exit(1)
-        command = "build"
-        file = args.bare_file
-        llvmir = args.bare_llvmir
+        command, file, llvmir = "build", args.bare_file, args.bare_llvmir
     else:
-        command = args.command
-        file = args.file
-        llvmir = args.llvmir
+        command, file, llvmir = args.command, args.file, args.llvmir
 
     infile = Path(file).resolve()
     exe = compilef(infile, keep_llvmir=llvmir)
-
     if command == "build":
         print(f"Output: {exe}")
     elif command == "run":
