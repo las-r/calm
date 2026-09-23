@@ -25,7 +25,7 @@ calm build yourfile.cal --llvmir # builds exe and saves .ll file
 Only single-line comments are supported; there is no block-comment syntax.
 
 ### Statements & Blocks
-Statements are **not** separated by semicolons or newlines — whitespace is insignificant. Blocks are always delimited with `{` and `}` (never a single bare statement, and never `end`-style keywords as in `micro`).
+Statements are not separated by semicolons or newlines, whitespace is insignificant. Blocks are always delimited with `{` and `}`.
 
 ### Variables
 Variable declarations require an explicit type, and are optionally initialized:
@@ -78,10 +78,11 @@ def i32 add(i32 a, i32 b) {
     return a + b
 }
 ```
+
 `return` with no following expression returns nothing (only valid when the function's return type is `void`). A `return` is considered bare if the next token is `}` or `else`.
 
 ### External (C) Functions
-Functions implemented outside CALM are declared with `extc def`, using only a type/name signature (no body). A trailing `...` marks the function as variadic (e.g. for `printf`):
+Functions implemented outside CALM are declared with `extc def`, using only a type/name signature. A trailing `...` marks the function as variadic (e.g. for `printf`):
 ```
 extc def i32 printf(i32 f, ...)
 ```
@@ -95,7 +96,7 @@ extc def i32 printf(i32 f, ...)
 | Slices | `[<t>]`, e.g. `[i32]`, `[[i32]]` |
 | Misc. | `void` (only valid as a function's return type) |
 
-There is no dedicated boolean type: comparisons and logic operators produce an integer (`0` for false, nonzero for true), and `if`/`while` treat any nonzero value as true — same convention as `micro`.
+There is no dedicated boolean type. Comparisons and logic operators produce an integer (`0` for false, nonzero for true), and `if`/`while` treat any nonzero value as true.
 
 ### Structs
 A struct is declared with typed fields, and constructed with a brace literal listing values positionally, in field-declaration order:
@@ -107,14 +108,15 @@ struct Point {
 
 Point p = Point{1, 2}
 ```
+
 Fields are accessed with `.`:
 ```
 p.x = 5
 ```
 
 ## Pointers
-* `@X` — address-of: takes a pointer to `X`.
-* `#P` — dereference: reads (or, as an assignment target, writes) the value `P` points to.
+* `@X` - address-of: takes a pointer to `X`.
+* `#P` - dereference: reads (or, as an assignment target, writes) the value `P` points to.
 
 ```
 i32 x = 10
@@ -136,7 +138,8 @@ CALM has two forms of `;use`, both of which must appear at the very top of the f
 ;use "utils.cal"   // import a local file, path relative to the importing file
 ;use io            // import a stdlib module (looked up in CALM's std/ directory)
 ```
-Imported code is textually resolved into the importing file before compilation and shares scope with it. A file is only ever imported once, even if reachable via multiple `;use` paths (imports are deduplicated).
+
+Imported code is textually resolved into the importing file before compilation and shares scope with it. A file is only ever imported once.
 
 ## Grammar Reference
 ```
