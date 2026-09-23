@@ -43,13 +43,14 @@ def widertype(a, b):
         return (-1, 0)
     return a if rank(a) >= rank(b) else b
 
+
+# base classes
 class Ctx:
     def __init__(self, module, builder):
         self.module, self.builder = module, builder
         self.symtable, self.types, self.funcs = {}, {}, {}
         self.loopstack, self.structfields = [], {}
-
-# base classes
+        
 class Node:
     def codegen(self, ctx): raise Exception("codegen not implemented")
     def codegenptr(self, ctx): raise Exception(f"{type(self).__name__} has no address")
