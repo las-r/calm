@@ -222,3 +222,4 @@ __marimo__/
 # Calm
 *.cal
 *.exe
+!examples/*.cal

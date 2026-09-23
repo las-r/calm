@@ -1,0 +1,7 @@
+extc def i32 printf([u8] f, ...)
+
+def i32 main() {
+    [u8] msg = "Hello, world!\n"
+    printf(msg)
+    return 0
+}
