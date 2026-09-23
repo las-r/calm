@@ -2,5 +2,6 @@
 
 def i32 main() {
     printf("Hello, world!\n")
+    
     return 0
 }
