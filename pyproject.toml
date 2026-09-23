@@ -12,7 +12,7 @@ dependencies = [
 ]
 
 [project.scripts]
-micro = "calm.__main__:main"
+calm = "calm.__main__:main"
 
 [tool.setuptools.packages.find]
 include = ["calm*"]
