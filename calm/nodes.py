@@ -97,7 +97,6 @@ class BoolLiteralNode(Node):
     def codegen(self, ctx): return ir.Constant(ir.IntType(1), int(self.value))
 
 def _globarray(ctx, prefix, data, elemty=None):
-    """Shared helper: build a global constant array and return a pointer to its first element."""
     glob = ir.GlobalVariable(ctx.module, data.type, ctx.module.get_unique_name(prefix))
     glob.initializer = data
     glob.linkage = "internal"
@@ -134,7 +133,16 @@ class VarDeclNode(Node):
 
     def codegen(self, ctx):
         ty = self.vartype.resolve(ctx)
-        ptr = ctx.builder.alloca(ty, name=self.name)
+        entry = ctx.builder.function.entry_basic_block
+        if ctx.builder.block is entry:
+            ptr = ctx.builder.alloca(ty, name=self.name)
+        else:
+            entrybuilder = ir.IRBuilder(entry)
+            if entry.instructions:
+                entrybuilder.position_before(entry.instructions[0])
+            else:
+                entrybuilder.position_at_end(entry)
+            ptr = entrybuilder.alloca(ty, name=self.name)
         ctx.symtable[self.name] = ptr
         if self.value is not None:
             ctx.builder.store(coerce(ctx, self.value.codegen(ctx), ty), ptr)
