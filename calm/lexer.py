@@ -8,6 +8,7 @@ REGEX = re.compile(r"""
     (?P<COMMENT>  //[^\n]*) |
     (?P<NUMBER>   \d+(?:\.\d+)?) |
     (?P<STRING>   "(?:\\.|[^"\\])*") |
+    (?P<CHAR>     `\w) |
     (?P<KEYWORD>  \b(if|while|break|def|return|struct|extc)\b) |
     (?P<OPER>     \.\.\.|<<|>>|==|!=|<=|>=|&&|\|\||[=,+\-*/%~&|^<>!@#.:]) |
     (?P<BRACKET>  [\(\)\[\]\{\}]) |

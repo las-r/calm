@@ -79,6 +79,10 @@ class TypeNode(Node):
 class IntLiteralNode(Node):
     def __init__(self, value, bits=32): self.value, self.bits = value, bits
     def codegen(self, ctx): return ir.Constant(ir.IntType(self.bits), self.value)
+    
+class CharLiteralNode(Node):
+    def __init__(self, char): self.char = char
+    def codegen(self, ctx): return IntLiteralNode(ord(self.char)).codegen(ctx)
 
 class FloatLiteralNode(Node):
     def __init__(self, value, bits=64): self.value, self.bits = value, bits

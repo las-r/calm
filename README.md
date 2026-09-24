@@ -98,6 +98,19 @@ extc def i32 printf(i32 f, ...)
 
 There is no dedicated boolean type. Comparisons and logic operators produce an integer (`0` for false, nonzero for true), and `if`/`while` treat any nonzero value as true.
 
+### Chars
+Chars can be defined with ``u8 V = `C`` and have type `u8`, e.g.:
+```
+u8 i = `A
+```
+
+### Strings
+Strings can be defined with `[u8] V = "..."` and have type `[u8]`, e.g.:
+```
+[u8] msg = "Hello, world!"
+```
+
+
 ### Structs
 A struct is declared with typed fields, and constructed with a brace literal listing values positionally, in field-declaration order:
 ```

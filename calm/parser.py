@@ -87,6 +87,8 @@ def parseatom(tokens):
     tok = tokens.eat()
     if tok in knowntypes and tokens.peek() == "{":
         node = parsestructliteral(tokens, tok)
+    elif tok.startswith("`"):
+        node = CharLiteralNode(tok[1])
     elif tok.startswith('"') and tok.endswith('"'):
         node = StrLiteralNode(tok[1:-1])
     else:
