@@ -48,12 +48,25 @@ def parsetype(tokens):
     name = tokens.eat()
     for _ in range(slicedepth):
         expect(tokens, "]", "Expected closing ']' in type")
-    return TypeNode(name, slicedepth)
+    arraylen = None
+    if tokens.peek() == "[":
+        tokens.eat()
+        lentok = tokens.eat()
+        if not lentok.isdigit():
+            raise SyntaxError("Expected integer array length")
+        arraylen = int(lentok)
+        expect(tokens, "]", "Expected closing ']' in array type")
+    return TypeNode(name, slicedepth, arraylen)
 
 # struct literal parser
 def parsestructliteral(tokens, structname):
     values = parsebraced(tokens, "{", "}", "struct literal", parseexpr)
     return StructLiteralNode(structname, values)
+
+# array literal parser
+def parsearrayliteral(tokens, elemtype):
+    values = parsebraced(tokens, "{", "}", "array literal", parseexpr)
+    return ArrayLiteralNode(elemtype, values)
 
 # postfix parser
 def parsepostfix(tokens, node):
@@ -177,7 +190,14 @@ def parsestmt(tokens):
         value = None
         if tokens.peek() == "=":
             tokens.eat()
-            value = parsestructliteral(tokens, vartype.name) if tokens.peek() == "{" else parseexpr(tokens)
+            if tokens.peek() == "{":
+                if vartype.arraylen is not None:
+                    elemtype = TypeNode(vartype.name, vartype.slicedepth)
+                    value = parsearrayliteral(tokens, elemtype)
+                else:
+                    value = parsestructliteral(tokens, vartype.name)
+            else:
+                value = parseexpr(tokens)
         return VarDeclNode(vartype, name, value)
 
     # assignment or fallback expression

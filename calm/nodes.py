@@ -56,12 +56,15 @@ class Node:
     def codegenptr(self, ctx): raise Exception(f"{type(self).__name__} has no address")
 
 class TypeNode(Node):
-    def __init__(self, name, slicedepth=0):
-        self.name, self.slicedepth = name, slicedepth
+    def __init__(self, name, slicedepth=0, arraylen=None):
+        self.name, self.slicedepth, self.arraylen = name, slicedepth, arraylen
 
     def resolve(self, ctx):
         base = self.resolvebase(ctx)
-        for _ in range(self.slicedepth): base = ir.PointerType(base)
+        for _ in range(self.slicedepth):
+            base = ir.PointerType(base)
+        if self.arraylen is not None:
+            base = ir.ArrayType(base, self.arraylen)
         return base
 
     def resolvebase(self, ctx):
@@ -194,8 +197,17 @@ class BinaryOpNode(Node):
 class IndexNode(Node):
     def __init__(self, arr, idx): self.arr, self.idx = arr, idx
     def codegen(self, ctx): return ctx.builder.load(self.codegenptr(ctx))
+
     def codegenptr(self, ctx):
-        return ctx.builder.gep(self.arr.codegen(ctx), [self.idx.codegen(ctx)], inbounds=True)
+        ptr = self.arr.codegenptr(ctx)
+        idx = self.idx.codegen(ctx)
+        pointee = ptr.type.pointee
+        if isinstance(pointee, ir.ArrayType):
+            zero = ir.Constant(ir.IntType(32), 0)
+            return ctx.builder.gep(ptr, [zero, idx], inbounds=True)
+        else:
+            sptr = ctx.builder.load(ptr)
+            return ctx.builder.gep(sptr, [idx], inbounds=True)
 
 # control flow nodes
 class IfNode(Node):
@@ -367,6 +379,20 @@ class FieldAccessNode(Node):
         idx = self.fieldindex(ctx, objptr.type.pointee.name)
         zero = ir.Constant(ir.IntType(32), 0)
         return ctx.builder.gep(objptr, [zero, ir.Constant(ir.IntType(32), idx)], inbounds=True)
+    
+# array nodes
+class ArrayLiteralNode(Node):
+    def __init__(self, elemtype, values): self.elemtype, self.values = elemtype, values
+
+    def codegen(self, ctx):
+        elemty = self.elemtype.resolve(ctx)
+        arrty = ir.ArrayType(elemty, len(self.values))
+        tmp = ctx.builder.alloca(arrty, name="arr.lit")
+        zero = ir.Constant(ir.IntType(32), 0)
+        for i, valnode in enumerate(self.values):
+            ptr = ctx.builder.gep(tmp, [zero, ir.Constant(ir.IntType(32), i)], inbounds=True)
+            ctx.builder.store(coerce(ctx, valnode.codegen(ctx), elemty), ptr)
+        return ctx.builder.load(tmp)
 
 # pointer nodes
 class AddrOfNode(Node):
