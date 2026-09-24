@@ -187,7 +187,7 @@ def parsestmt(tokens):
         rhs = parseexpr(tokens)
         if isinstance(lhs, VarRefNode):
             return AssignNode(rhs, name=lhs.name)
-        if isinstance(lhs, (IndexNode, FieldAccessNode)):
+        if isinstance(lhs, (IndexNode, FieldAccessNode, DerefNode)):
             return AssignNode(rhs, target=lhs)
         raise SyntaxError("Invalid assignment target")
 
