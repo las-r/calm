@@ -110,6 +110,11 @@ Strings can be defined with `[u8] V = "..."` and have type `[u8]`, e.g.:
 [u8] msg = "Hello, world!"
 ```
 
+### Arrays
+Arrays can be defined with `<t>[L] = B`, e.g.:
+```
+i32[4] nums = {0, 1, 2, 3}
+```
 
 ### Structs
 A struct is declared with typed fields, and constructed with a brace literal listing values positionally, in field-declaration order:
