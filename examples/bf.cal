@@ -1,0 +1,52 @@
+;use io
+
+extc def u64 strlen([u8] s)
+
+// brainfuck interpreter in calm
+// by las-r
+
+def i32 main() {
+    u8[1024] code
+    printf("Enter code: ")
+    scanf("%s", @code:0)
+
+    u8[65535] data
+    i32 dp = 0
+    i32 pc = 0
+
+    while pc < strlen(@code:0) {
+        u8 i = code:pc
+
+        if i == `> {dp = dp + 1}
+        else if i == `< {dp = dp - 1}
+        else if i == `+ {data:dp = data:dp + 1}
+        else if i == `- {data:dp = data:dp - 1}
+        else if i == `. {printf("%c", data:dp)}
+        else if i == `, {scanf("%c", @data:dp)}
+        else if i == `[ {
+            if data:dp == 0 {
+                i32 depth = 1
+                while depth != 0 {
+                    pc = pc + 1
+                    if code:pc == `[ {depth = depth + 1}
+                    else if code:pc == `] {depth = depth - 1}
+                }
+            }
+        }
+        else if i == `] {
+            if data:dp != 0 {
+                i32 depth = 1
+                while depth != 0 {
+                    pc = pc - 1
+                    if code:pc == `] {depth = depth + 1}
+                    else if code:pc == `[ {depth = depth - 1}
+                }
+            }
+        }
+
+        pc = pc + 1
+    }
+
+    printf("\n")
+    return 0
+}
