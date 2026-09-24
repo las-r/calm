@@ -1,5 +1,8 @@
 ;use io
 
+// fizzbuzz example in calm
+// by las-r
+
 def i32 main() {
     i32 i = 1
 

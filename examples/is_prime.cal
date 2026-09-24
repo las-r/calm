@@ -1,5 +1,8 @@
 ;use io
 
+// prime checker example in calm
+// by las-r
+
 def i32 main() {
     u64 n
     u64 i = 2

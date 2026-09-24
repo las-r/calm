@@ -1,5 +1,8 @@
 ;use io
 
+// hello world example in calm
+// by las-r
+
 def i32 main() {
     printf("Hello, world!\n")
     

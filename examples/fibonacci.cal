@@ -1,5 +1,8 @@
 ;use io
 
+// fibonacci example in calm
+// by las-r
+
 def u64 fib(u64 n) {
     if n <= 1 {
         return n
