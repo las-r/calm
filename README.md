@@ -102,11 +102,12 @@ There is no dedicated boolean type. Comparisons and logic operators produce an i
 A struct is declared with typed fields, and constructed with a brace literal listing values positionally, in field-declaration order:
 ```
 struct Point {
-    i32 x
+    i32 x,
     i32 y
 }
 
 Point p = Point{1, 2}
+Point p = {3, 4}  // the struct name is optional in declarations if the variable is typed as it
 ```
 
 Fields are accessed with `.`:
