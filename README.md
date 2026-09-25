@@ -2,7 +2,7 @@
 A minimal, C-like compiled programming language.
 
 ## Overview
-CALM is a small, statically-typed, compiled language with C-like syntax. It compiles to LLVM IR, which is then handed to `clang` to produce a native executable.
+CALM is a small, statically-typed, compiled language with C-like syntax. It compiles to LLVM IR, which is then compiled to a binary with `clang`.
 
 ## Getting Started
 ### Installation
@@ -38,7 +38,7 @@ Reassigning an existing variable omits the type:
 ```
 x = 20
 ```
-Assignment targets can be a plain name, a field (`P.field = X`), an index (`P:0 = X`), or a dereferenced pointer (`#P = X`).
+An assignment target can be a name, a field (`P.field = X`), an index (`P:0 = X`), or a dereferenced pointer (`#P = X`).
 
 ### Operators
 * **Arithmetic:** `+`, `-`, `*`, `/`, `%`
@@ -46,7 +46,7 @@ Assignment targets can be a plain name, a field (`P.field = X`), an index (`P:0 
 * **Comparison:** `==`, `!=`, `<`, `<=`, `>`, `>=`
 * **Logical:** `!` (not), `&&` (and), `||` (or)
 
-There is no operator precedence; parentheses are the only way to control grouping. `2 + 3 * 4` evaluates to `20`, while `2 + (3 * 4)` evaluates to `14`.
+There is no operator precedence. Parentheses are the only way to control grouping: `2 + 3 * 4` is `20`, but `2 + (3 * 4)` is `14`.
 
 ## Control Flow
 ### Conditionals
@@ -59,7 +59,7 @@ if x > 0 {
     printf("negative\n")
 }
 ```
-`else if` and `else` are both optional, and any number of `else if` branches may chain.
+`else if` and `else` are both optional; `else if` branches may chain any number of times.
 
 ### Loops
 ```
@@ -69,6 +69,8 @@ while i < 5 {
     i = i + 1
 }
 ```
+Unlike `if`, `while` does not coerce its condition, it must already be a boolean value, i.e. the result of a comparison or logical operator.
+
 `break` exits the innermost enclosing loop.
 
 ## Functions
@@ -79,13 +81,14 @@ def i32 add(i32 a, i32 b) {
 }
 ```
 
-`return` with no following expression returns nothing (only valid when the function's return type is `void`). A `return` is considered bare if the next token is `}` or `else`.
+A bare `return` (only valid for `void` functions) is one immediately followed by `}` or `else`.
 
 ### External (C) Functions
 Functions implemented outside CALM are declared with `extc def`, using only a type/name signature. A trailing `...` marks the function as variadic (e.g. for `printf`):
 ```
 extc def i32 printf(i32 f, ...)
 ```
+Arguments passed for the `...` are promoted per C calling convention: integers narrower than 32 bits are widened to `i32` (sign- or zero-extended per their type), and `f32` values are widened to `f64`.
 
 ## Types
 | Category | Types |
@@ -96,13 +99,14 @@ extc def i32 printf(i32 f, ...)
 | Slices | `[<t>]`, e.g. `[i32]`, `[[i32]]` |
 | Misc. | `void` (only valid as a function's return type) |
 
-There is no dedicated boolean type. Comparisons and logic operators produce an integer (`0` for false, nonzero for true), and `if`/`while` treat any nonzero value as true.
+There is no dedicated boolean type. Comparisons and logic operators produce an integer (`0` for false, nonzero for true). `if` coerces any nonzero value to true; `while` does not coerce and requires a condition that's already boolean (see Loops).
 
 ### Chars
-Chars can be defined with ``u8 V = `C`` and have type `u8`, e.g.:
+A char is written `` `C `` and has type `u8`:
 ```
 u8 i = `A
 ```
+Unlike strings, char literals don't support escape sequences, `` `\n `` is the two characters `\` and `n`, not a newline.
 
 ### Strings
 Strings can be defined with `[u8] V = "..."` and have type `[u8]`, e.g.:
@@ -117,7 +121,7 @@ i32[4] nums = {0, 1, 2, 3}
 ```
 
 ### Structs
-A struct is declared with typed fields, and constructed with a brace literal listing values positionally, in field-declaration order:
+A struct is declared with typed fields and constructed with a brace literal listing values positionally, in field-declaration order. A struct must be declared before any use of its type (no forward references):
 ```
 struct Point {
     i32 x,
@@ -150,6 +154,7 @@ Slices are written `[<t>]` and indexed with `:`:
 i32 first = nums:0
 nums:1 = 99
 ```
+No bounds checking is performed. An out-of-range index is undefined behavior.
 
 ## Module Imports
 CALM has two forms of `;use`, both of which must appear at the very top of the file, before any other code:
@@ -158,7 +163,7 @@ CALM has two forms of `;use`, both of which must appear at the very top of the f
 ;use io            // import a stdlib module (looked up in CALM's std/ directory)
 ```
 
-Imported code is textually resolved into the importing file before compilation and shares scope with it. A file is only ever imported once.
+Imports are textually resolved before compilation and share scope with the importing file. Each file is imported at most once.
 
 ## Grammar Reference
 ```
