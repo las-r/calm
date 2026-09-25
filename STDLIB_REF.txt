@@ -1,0 +1,39 @@
+CALM STANDARD LIBRARY REFERENCE
+
+Import a module with: ;use <name>
+
+char
+  i32 isalnum(u8 c)   nonzero if letter or digit
+  i32 isalpha(u8 c)   nonzero if letter
+  i32 isdigit(u8 c)   nonzero if '0'-'9'
+  i32 islower(u8 c)   nonzero if 'a'-'z'
+  i32 isspace(u8 c)   nonzero if space, tab, newline, or carriage return
+  i32 isupper(u8 c)   nonzero if 'A'-'Z'
+  u8  tolower(u8 c)   lowercase c, unchanged if not uppercase
+  u8  toupper(u8 c)   uppercase c, unchanged if not lowercase
+
+io
+  i32 printf([u8] f, ...)   formatted output
+  i32 scanf([u8] f, ...)    formatted input
+
+math
+  f64 ceil(f64 x)          round up
+  f64 cos(f64 x)           cosine, radians
+  f64 floor(f64 x)         round down
+  f64 pow(f64 base, f64 exp)
+  f64 sin(f64 x)           sine, radians
+  f64 sqrt(f64 x)
+
+mem
+  [u8] malloc(i64 size)              allocate size bytes
+  [u8] realloc([u8] ptr, i64 size)   resize a block
+  void free([u8] ptr)                free a block
+
+os
+  void exit(i32 code)   terminate the program
+
+str
+  i32  strcmp([u8] a, [u8] b)      0 if equal, <0 if a<b, >0 if a>b
+  i64  strlen([u8] s)              length, excluding terminator
+  [u8] strcat([u8] dest, [u8] src) append src onto dest, returns dest
+  [u8] strcpy([u8] dest, [u8] src) copy src into dest, returns dest
