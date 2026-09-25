@@ -1,0 +1,179 @@
+{
+    "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+    "name": "CALM",
+    "scopeName": "source.calm",
+    "fileTypes": ["cal"],
+    "patterns": [
+        { "include": "#comments" },
+        { "include": "#use-directive" },
+        { "include": "#strings" },
+        { "include": "#chars" },
+        { "include": "#numbers" },
+        { "include": "#keywords" },
+        { "include": "#types" },
+        { "include": "#struct-def" },
+        { "include": "#function-def" },
+        { "include": "#extc-def" },
+        { "include": "#function-call" },
+        { "include": "#operators" },
+        { "include": "#punctuation" }
+    ],
+    "repository": {
+        "comments": {
+            "patterns": [
+                {
+                    "name": "comment.line.double-slash.calm",
+                    "match": "//.*$"
+                }
+            ]
+        },
+        "use-directive": {
+            "patterns": [
+                {
+                    "match": "(;use)\\s+(\"[^\"]*\"|[A-Za-z_][A-Za-z0-9_]*)",
+                    "captures": {
+                        "1": { "name": "keyword.control.import.calm" },
+                        "2": { "name": "string.quoted.double.calm" }
+                    }
+                }
+            ]
+        },
+        "strings": {
+            "name": "string.quoted.double.calm",
+            "begin": "\"",
+            "end": "\"",
+            "patterns": [
+                {
+                    "name": "constant.character.escape.calm",
+                    "match": "\\\\."
+                }
+            ]
+        },
+        "chars": {
+            "name": "string.quoted.other.calm",
+            "match": "`."
+        },
+        "numbers": {
+            "patterns": [
+                {
+                    "name": "constant.numeric.float.calm",
+                    "match": "\\b[0-9]+\\.[0-9]+\\b"
+                },
+                {
+                    "name": "constant.numeric.integer.calm",
+                    "match": "\\b[0-9]+\\b"
+                }
+            ]
+        },
+        "keywords": {
+            "patterns": [
+                {
+                    "name": "keyword.control.calm",
+                    "match": "\\b(struct|def|if|else|while|break|return)\\b"
+                },
+                {
+                    "name": "keyword.other.calm",
+                    "match": "\\b(extc)\\b"
+                }
+            ]
+        },
+        "types": {
+            "patterns": [
+                {
+                    "name": "storage.type.calm",
+                    "match": "\\b(i8|i16|i32|i64|u8|u16|u32|u64|f32|f64|void)\\b"
+                },
+                {
+                    "name": "storage.type.slice.calm",
+                    "match": "\\[|\\]"
+                }
+            ]
+        },
+        "struct-def": {
+            "match": "\\b(struct)\\s+([A-Za-z_][A-Za-z0-9_]*)",
+            "captures": {
+                "1": { "name": "keyword.other.calm" },
+                "2": { "name": "entity.name.type.struct.calm" }
+            }
+        },
+        "function-def": {
+            "match": "\\b(def)\\s+(?:\\[)?([A-Za-z_][A-Za-z0-9_]*)(?:\\])?\\s+([A-Za-z_][A-Za-z0-9_]*)\\s*(?=\\()",
+            "captures": {
+                "1": { "name": "keyword.other.calm" },
+                "2": { "name": "storage.type.calm" },
+                "3": { "name": "entity.name.function.calm" }
+            }
+        },
+        "extc-def": {
+            "match": "\\b(extc)\\s+(def)\\s+(?:\\[)?([A-Za-z_][A-Za-z0-9_]*)(?:\\])?\\s+([A-Za-z_][A-Za-z0-9_]*)\\s*(?=\\()",
+            "captures": {
+                "1": { "name": "keyword.other.calm" },
+                "2": { "name": "keyword.other.calm" },
+                "3": { "name": "storage.type.calm" },
+                "4": { "name": "entity.name.function.calm" }
+            }
+        },
+        "function-call": {
+            "match": "\\b([A-Za-z_][A-Za-z0-9_]*)\\s*(?=\\()",
+            "captures": {
+                "1": { "name": "entity.name.function.calm" }
+            }
+        },
+        "operators": {
+            "patterns": [
+                {
+                    "name": "keyword.operator.address-of.calm",
+                    "match": "@"
+                },
+                {
+                    "name": "keyword.operator.dereference.calm",
+                    "match": "#"
+                },
+                {
+                    "name": "keyword.operator.comparison.calm",
+                    "match": "==|!=|<=|>=|<|>"
+                },
+                {
+                    "name": "keyword.operator.logical.calm",
+                    "match": "&&|\\|\\||!"
+                },
+                {
+                    "name": "keyword.operator.bitwise.calm",
+                    "match": "~|\\^|<<|>>|&|\\|"
+                },
+                {
+                    "name": "keyword.operator.arithmetic.calm",
+                    "match": "\\+|\\-|\\*|/|%"
+                },
+                {
+                    "name": "keyword.operator.assignment.calm",
+                    "match": "="
+                },
+                {
+                    "name": "keyword.operator.index.calm",
+                    "match": ":"
+                }
+            ]
+        },
+        "punctuation": {
+            "patterns": [
+                {
+                    "name": "punctuation.separator.dot.calm",
+                    "match": "\\."
+                },
+                {
+                    "name": "punctuation.separator.comma.calm",
+                    "match": ","
+                },
+                {
+                    "name": "punctuation.section.braces.calm",
+                    "match": "[{}]"
+                },
+                {
+                    "name": "punctuation.section.parens.calm",
+                    "match": "[()]"
+                }
+            ]
+        }
+    }
+}

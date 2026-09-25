@@ -1,0 +1,81 @@
+{
+    "name": "calm-lang",
+    "displayName": "CALM Language Support",
+    "description": "VSCode support for CALM",
+    "version": "0.1.0",
+    "publisher": "las-r",
+    "license": "MIT",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/las-r/calm.git"
+    },
+    "engines": {
+        "vscode": "^1.80.0"
+    },
+    "categories": [
+        "Programming Languages"
+    ],
+    "contributes": {
+        "languages": [
+            {
+                "id": "calm",
+                "aliases": [
+                    "CALM",
+                    "Calm",
+                    "calm"
+                ],
+                "extensions": [
+                    ".cal"
+                ],
+                "configuration": "./language-configuration.json"
+            }
+        ],
+        "grammars": [
+            {
+                "language": "calm",
+                "scopeName": "source.calm",
+                "path": "./syntaxes/calm.tmLanguage.json"
+            }
+        ],
+        "commands": [
+            {
+                "command": "calm.run",
+                "title": "CALM: Run File",
+                "icon": "$(play)"
+            }
+        ],
+        "menus": {
+            "editor/title/run": [
+                {
+                    "command": "calm.run",
+                    "when": "resourceLangId == calm",
+                    "group": "navigation"
+                }
+            ],
+            "commandPalette": [
+                {
+                    "command": "calm.run",
+                    "when": "resourceLangId == calm"
+                }
+            ]
+        },
+        "keybindings": [
+            {
+                "command": "calm.run",
+                "key": "ctrl+alt+n",
+                "mac": "cmd+alt+n",
+                "when": "resourceLangId == calm"
+            }
+        ],
+        "configuration": {
+            "title": "CALM",
+            "properties": {
+                "calm.calmPath": {
+                    "type": "string",
+                    "default": "calm",
+                    "description": "Path to the calm executable used to run .cal files."
+                }
+            }
+        }
+    }
+}
