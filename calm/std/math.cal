@@ -1,0 +1,6 @@
+extc def f64 sqrt(f64 x)
+extc def f64 pow(f64 base, f64 exp)
+extc def f64 sin(f64 x)
+extc def f64 cos(f64 x)
+extc def f64 floor(f64 x)
+extc def f64 ceil(f64 x)

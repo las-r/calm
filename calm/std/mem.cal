@@ -1,0 +1,3 @@
+extc def [u8] malloc(i64 size)
+extc def void free([u8] ptr)
+extc def [u8] realloc([u8] ptr, i64 size)
