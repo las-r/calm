@@ -224,3 +224,4 @@ __marimo__/
 *.exe
 !examples/*.cal
 !calm/**/*.cal
+*.vsix
