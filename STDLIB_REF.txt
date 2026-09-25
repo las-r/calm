@@ -12,17 +12,28 @@ char
   u8  tolower(u8 c)   lowercase c, unchanged if not uppercase
   u8  toupper(u8 c)   uppercase c, unchanged if not lowercase
 
+fs
+  [u8] fgets([u8] buf, i32 n, [u8] stream)                 read a line into buf
+  [u8] fopen([u8] path, [u8] mode)                         open a file, returns a stream
+  i32  fclose([u8] stream)                                 close a stream
+  i32  fprintf([u8] stream, [u8] f, ...)                   formatted output to a stream
+  i32  fputs([u8] s, [u8] stream)                          write a string to a stream
+  i32  fscanf([u8] stream, [u8] f, ...)                    formatted input from a stream
+  i32  remove([u8] path)                                   delete a file
+  i64  fread([u8] buf, i64 size, i64 count, [u8] stream)   read count items of size bytes
+  i64  fwrite([u8] buf, i64 size, i64 count, [u8] stream)  write count items of size bytes
+
 io
   i32 printf([u8] f, ...)   formatted output
   i32 scanf([u8] f, ...)    formatted input
 
 math
-  f64 ceil(f64 x)          round up
-  f64 cos(f64 x)           cosine, radians
-  f64 floor(f64 x)         round down
-  f64 pow(f64 base, f64 exp)
-  f64 sin(f64 x)           sine, radians
-  f64 sqrt(f64 x)
+  f64 ceil(f64 x)              round up
+  f64 cos(f64 x)               cosine, radians
+  f64 floor(f64 x)             round down
+  f64 pow(f64 base, f64 exp)   exponentiation
+  f64 sin(f64 x)               sine, radians
+  f64 sqrt(f64 x)              square root
 
 mem
   [u8] malloc(i64 size)              allocate size bytes

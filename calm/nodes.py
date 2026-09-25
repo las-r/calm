@@ -43,6 +43,16 @@ def widertype(a, b):
         return (-1, 0)
     return a if rank(a) >= rank(b) else b
 
+def tobool(ctx, cond):
+    if isinstance(cond.type, ir.IntType) and cond.type.width == 1:
+        return cond
+    if isinstance(cond.type, (ir.FloatType, ir.DoubleType)):
+        return ctx.builder.fcmp_ordered("!=", cond, ir.Constant(cond.type, 0.0))
+    if isinstance(cond.type, ir.PointerType):
+        return ctx.builder.icmp_unsigned("!=", cond, ir.Constant(cond.type, None))
+    if isinstance(cond.type, ir.IntType):
+        return ctx.builder.icmp_unsigned("!=", cond, ir.Constant(cond.type, 0))
+    raise Exception(f"Cannot convert {cond.type} to a boolean condition")
 
 # base classes
 class Ctx:
@@ -51,6 +61,7 @@ class Ctx:
         self.symtable, self.types, self.funcs = {}, {}, {}
         self.loopstack, self.structfields = [], {}
         self.vartypes, self.structfieldtypes, self.funcrettypes = {}, {}, {}
+        self.funcparamtypes = {}
         
 class Node:
     def codegen(self, ctx): raise Exception("codegen not implemented")
@@ -207,6 +218,16 @@ class BinaryOpNode(Node):
 
     def codegen(self, ctx):
         a, b = self.a.codegen(ctx), self.b.codegen(ctx)
+        if isinstance(a.type, ir.PointerType) or isinstance(b.type, ir.PointerType):
+            if self.op not in ("==", "!="):
+                raise Exception(f"Operator '{self.op}' is not supported on pointers")
+            if isinstance(a.type, ir.PointerType) and isinstance(b.type, ir.IntType):
+                b = ir.Constant(a.type, None)
+            elif isinstance(b.type, ir.PointerType) and isinstance(a.type, ir.IntType):
+                a = ir.Constant(b.type, None)
+            elif a.type != b.type:
+                raise Exception(f"Cannot compare pointers of different types: {a.type} and {b.type}")
+            return ctx.builder.icmp_unsigned(self.op, a, b)
         isfloat = isinstance(a.type, (ir.FloatType, ir.DoubleType)) or isinstance(b.type, (ir.FloatType, ir.DoubleType))
         at, bt = self.a.restype(ctx), self.b.restype(ctx)
         isunsigned = (at is not None and at.isunsigned()) or (bt is not None and bt.isunsigned())
@@ -249,16 +270,7 @@ class IfNode(Node):
         self.cond, self.body, self.ebody = cond, body, ebody
 
     def codegen(self, ctx):
-        cond = self.cond.codegen(ctx)
-        if not (isinstance(cond.type, ir.IntType) and cond.type.width == 1):
-            if isinstance(cond.type, (ir.FloatType, ir.DoubleType)):
-                cond = ctx.builder.fcmp_ordered("!=", cond, ir.Constant(cond.type, 0.0))
-            elif isinstance(cond.type, ir.PointerType):
-                cond = ctx.builder.icmp_unsigned("!=", cond, ir.Constant(cond.type, None))
-            elif isinstance(cond.type, ir.IntType):
-                cond = ctx.builder.icmp_unsigned("!=", cond, ir.Constant(cond.type, 0))
-            else:
-                raise Exception(f"Cannot convert {cond.type} to a boolean condition")
+        cond = tobool(ctx, self.cond.codegen(ctx))
         func = ctx.builder.function
         thenbb = func.append_basic_block("if.then")
         elsebb = func.append_basic_block("if.else") if self.ebody else None
@@ -286,7 +298,7 @@ class WhileNode(Node):
         endbb = func.append_basic_block("while.end")
         ctx.builder.branch(condbb)
         ctx.builder.position_at_end(condbb)
-        ctx.builder.cbranch(self.cond.codegen(ctx), bodybb, endbb)
+        ctx.builder.cbranch(tobool(ctx, self.cond.codegen(ctx)), bodybb, endbb)
         ctx.builder.position_at_end(bodybb)
         ctx.loopstack.append(endbb)
         for node in self.body: node.codegen(ctx)
@@ -310,6 +322,7 @@ class FunctionNode(Node):
         func = ir.Function(ctx.module, fnty, name=self.name)
         ctx.funcs[self.name] = func
         ctx.funcrettypes[self.name] = self.rettype
+        ctx.funcparamtypes[self.name] = [p.paramtype for p in self.params]
 
         saved = (ctx.builder, ctx.symtable, ctx.vartypes, getattr(ctx, "currentrettype", None), getattr(ctx, "currentrettypenode", None))
         ctx.builder = ir.IRBuilder(func.append_basic_block("entry"))
@@ -344,6 +357,7 @@ class ExternFunctionNode(Node):
         func = ir.Function(ctx.module, fnty, name=self.name)
         ctx.funcs[self.name] = func
         ctx.funcrettypes[self.name] = self.rettype
+        ctx.funcparamtypes[self.name] = [p.paramtype for p in self.params]
         return func
 
 class CallNode(Node):
@@ -357,10 +371,16 @@ class CallNode(Node):
         func = ctx.funcs[self.name]
         fnty = func.function_type
         numfixed = len(fnty.args)
+        paramtypes = ctx.funcparamtypes.get(self.name, [])
         args = []
         for i, a in enumerate(self.args):
             val = a.codegen(ctx)
-            if fnty.var_arg and i >= numfixed:
+            if i < numfixed:
+                target = fnty.args[i]
+                if val.type != target and not isinstance(val.type, ir.PointerType) and not isinstance(target, ir.PointerType):
+                    paramtype = paramtypes[i] if i < len(paramtypes) else None
+                    val = coerce(ctx, val, target, unsigned=paramtype.isunsigned() if paramtype is not None else False)
+            elif fnty.var_arg:
                 argtype = a.restype(ctx)
                 if isinstance(val.type, ir.FloatType):
                     val = ctx.builder.fpext(val, ir.DoubleType())

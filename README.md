@@ -69,7 +69,6 @@ while i < 5 {
     i = i + 1
 }
 ```
-Unlike `if`, `while` does not coerce its condition, it must already be a boolean value, i.e. the result of a comparison or logical operator.
 
 `break` exits the innermost enclosing loop.
 
