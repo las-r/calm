@@ -1,0 +1,35 @@
+;use io
+;use fs
+;use mem
+
+// file reader example
+// by las-r
+
+def i32 main() {
+    [u8] f = malloc(256)
+    printf("Enter filename: ")
+    scanf("%s", f)
+
+    [u8] stream = fopen(f, "r")
+    if stream {
+        [u8] buf = malloc(256)
+
+        while 1 {
+            [u8] line = fgets(buf, 256, stream)
+            if line {
+                printf("%s", buf)
+            } else {
+                break
+            }
+        }
+
+        free(buf)
+        fclose(stream)
+    } else {
+        printf("could not open file\n")
+        return 1
+    }
+
+    free(f)
+    return 0
+}
