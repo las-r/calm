@@ -2,7 +2,7 @@
     "name": "calm-lang",
     "displayName": "CALM Language Support",
     "description": "VSCode support for CALM",
-    "version": "0.1.0",
+    "version": "0.1.1",
     "publisher": "las-r",
     "license": "MIT",
     "repository": {
