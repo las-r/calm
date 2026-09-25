@@ -37,44 +37,9 @@
                 "path": "./syntaxes/calm.tmLanguage.json"
             }
         ],
-        "commands": [
-            {
-                "command": "calm.run",
-                "title": "CALM: Run File",
-                "icon": "$(play)"
-            }
-        ],
-        "menus": {
-            "editor/title/run": [
-                {
-                    "command": "calm.run",
-                    "when": "resourceLangId == calm",
-                    "group": "navigation"
-                }
-            ],
-            "commandPalette": [
-                {
-                    "command": "calm.run",
-                    "when": "resourceLangId == calm"
-                }
-            ]
-        },
-        "keybindings": [
-            {
-                "command": "calm.run",
-                "key": "ctrl+alt+n",
-                "mac": "cmd+alt+n",
-                "when": "resourceLangId == calm"
-            }
-        ],
-        "configuration": {
-            "title": "CALM",
-            "properties": {
-                "calm.calmPath": {
-                    "type": "string",
-                    "default": "calm",
-                    "description": "Path to the calm executable used to run .cal files."
-                }
+        "configurationDefaults": {
+            "code-runner.executorMap": {
+                "calm": "calm run $fullFileName"
             }
         }
     }
