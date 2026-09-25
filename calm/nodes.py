@@ -50,10 +50,12 @@ class Ctx:
         self.module, self.builder = module, builder
         self.symtable, self.types, self.funcs = {}, {}, {}
         self.loopstack, self.structfields = [], {}
+        self.vartypes, self.structfieldtypes, self.funcrettypes = {}, {}, {}
         
 class Node:
     def codegen(self, ctx): raise Exception("codegen not implemented")
     def codegenptr(self, ctx): raise Exception(f"{type(self).__name__} has no address")
+    def restype(self, ctx): return None
 
 class TypeNode(Node):
     def __init__(self, name, slicedepth=0, arraylen=None):
@@ -77,6 +79,11 @@ class TypeNode(Node):
 
     def isunsigned(self): return self.name in UNSIGNED
     def isfloat(self): return self.name in ("f32", "f64")
+
+    def elemtype(self):
+        if self.arraylen is not None: return TypeNode(self.name, self.slicedepth, None)
+        if self.slicedepth > 0: return TypeNode(self.name, self.slicedepth - 1, None)
+        return None
 
 # literal nodes
 class IntLiteralNode(Node):
@@ -126,6 +133,7 @@ class VarRefNode(Node):
     def __init__(self, name): self.name = name
     def codegen(self, ctx): return ctx.builder.load(ctx.symtable[self.name], name=self.name)
     def codegenptr(self, ctx): return ctx.symtable[self.name]
+    def restype(self, ctx): return ctx.vartypes.get(self.name)
 
 class VarDeclNode(Node):
     def __init__(self, vartype, name, value=None):
@@ -144,8 +152,9 @@ class VarDeclNode(Node):
                 entrybuilder.position_at_end(entry)
             ptr = entrybuilder.alloca(ty, name=self.name)
         ctx.symtable[self.name] = ptr
+        ctx.vartypes[self.name] = self.vartype
         if self.value is not None:
-            ctx.builder.store(coerce(ctx, self.value.codegen(ctx), ty), ptr)
+            ctx.builder.store(coerce(ctx, self.value.codegen(ctx), ty, unsigned=self.vartype.isunsigned()), ptr)
         return ptr
 
 class AssignNode(Node):
@@ -154,25 +163,32 @@ class AssignNode(Node):
 
     def codegen(self, ctx):
         val = self.expr.codegen(ctx)
-        if self.target is not None: ptr = self.target.codegenptr(ctx)
-        elif self.name is not None: ptr = ctx.symtable[self.name]
+        if self.target is not None:
+            ptr = self.target.codegenptr(ctx)
+            desttype = self.target.restype(ctx)
+        elif self.name is not None:
+            ptr = ctx.symtable[self.name]
+            desttype = ctx.vartypes.get(self.name)
         else: raise Exception("AssignNode needs a name or a target")
-        val = coerce(ctx, val, ptr.type.pointee)
+        val = coerce(ctx, val, ptr.type.pointee, unsigned=desttype.isunsigned() if desttype is not None else False)
         ctx.builder.store(val, ptr)
         return val
 
 # operation nodes
 class UnaryOpNode(Node):
-    def __init__(self, op, a, isfloat=False):
-        self.op, self.a, self.isfloat = op, a, isfloat
+    def __init__(self, op, a):
+        self.op, self.a = op, a
+
+    def restype(self, ctx): return self.a.restype(ctx)
 
     def codegen(self, ctx):
         a, b = self.a.codegen(ctx), ctx.builder
+        isfloat = isinstance(a.type, (ir.FloatType, ir.DoubleType))
         if self.op == "!":
             if isinstance(a.type, ir.IntType) and a.type.width == 1: return b.not_(a)
             return b.icmp_unsigned("==", a, ir.Constant(a.type, 0))
         if self.op == "~": return b.not_(a)
-        if self.op == "-": return b.fneg(a) if self.isfloat else b.neg(a)
+        if self.op == "-": return b.fneg(a) if isfloat else b.neg(a)
         raise Exception(f"Unknown unary operator: {self.op}")
 
 class BinaryOpNode(Node):
@@ -181,17 +197,24 @@ class BinaryOpNode(Node):
              "<<": "shl", "&&": "and_", "||": "or_"}
     _CMPS = {"==", "!=", "<", ">", "<=", ">="}
 
-    def __init__(self, a, op, b, isfloat=False, isunsigned=False):
+    def __init__(self, a, op, b):
         self.a, self.op, self.b = a, op, b
-        self.isfloat, self.isunsigned = isfloat, isunsigned
+
+    def restype(self, ctx):
+        if self.op in self._CMPS: return None
+        at, bt = self.a.restype(ctx), self.b.restype(ctx)
+        return at if at is not None else bt
 
     def codegen(self, ctx):
         a, b = self.a.codegen(ctx), self.b.codegen(ctx)
+        isfloat = isinstance(a.type, (ir.FloatType, ir.DoubleType)) or isinstance(b.type, (ir.FloatType, ir.DoubleType))
+        at, bt = self.a.restype(ctx), self.b.restype(ctx)
+        isunsigned = (at is not None and at.isunsigned()) or (bt is not None and bt.isunsigned())
         if a.type != b.type:
             target = widertype(a.type, b.type)
-            a = coerce(ctx, a, target, unsigned=self.isunsigned)
-            b = coerce(ctx, b, target, unsigned=self.isunsigned)
-        bld, op, u, f = ctx.builder, self.op, self.isunsigned, self.isfloat
+            a = coerce(ctx, a, target, unsigned=isunsigned)
+            b = coerce(ctx, b, target, unsigned=isunsigned)
+        bld, op, u, f = ctx.builder, self.op, isunsigned, isfloat
         if f and op in self._FOPS: return getattr(bld, self._FOPS[op])(a, b)
         if op in self._IOPS: return getattr(bld, self._IOPS[op])(a, b)
         if op == "/": return bld.fdiv(a, b) if f else (bld.udiv(a, b) if u else bld.sdiv(a, b))
@@ -205,6 +228,9 @@ class BinaryOpNode(Node):
 class IndexNode(Node):
     def __init__(self, arr, idx): self.arr, self.idx = arr, idx
     def codegen(self, ctx): return ctx.builder.load(self.codegenptr(ctx))
+    def restype(self, ctx):
+        base = self.arr.restype(ctx)
+        return base.elemtype() if base is not None else None
 
     def codegenptr(self, ctx):
         ptr = self.arr.codegenptr(ctx)
@@ -283,10 +309,12 @@ class FunctionNode(Node):
         fnty = ir.FunctionType(self.rettype.resolve(ctx), paramtypes)
         func = ir.Function(ctx.module, fnty, name=self.name)
         ctx.funcs[self.name] = func
+        ctx.funcrettypes[self.name] = self.rettype
 
-        saved = (ctx.builder, ctx.symtable, getattr(ctx, "currentrettype", None), getattr(ctx, "currentrettypenode", None))
+        saved = (ctx.builder, ctx.symtable, ctx.vartypes, getattr(ctx, "currentrettype", None), getattr(ctx, "currentrettypenode", None))
         ctx.builder = ir.IRBuilder(func.append_basic_block("entry"))
         ctx.symtable = {}
+        ctx.vartypes = {}
         ctx.currentrettype = fnty.return_type
         ctx.currentrettypenode = self.rettype
 
@@ -295,11 +323,12 @@ class FunctionNode(Node):
             ptr = ctx.builder.alloca(arg.type, name=p.name)
             ctx.builder.store(arg, ptr)
             ctx.symtable[p.name] = ptr
+            ctx.vartypes[p.name] = p.paramtype
         for node in self.body: node.codegen(ctx)
         if not (ctx.builder.block and ctx.builder.block.is_terminated):
             ctx.builder.ret_void() if isinstance(fnty.return_type, ir.VoidType) else ctx.builder.ret(ir.Constant(fnty.return_type, 0))
 
-        ctx.builder, ctx.symtable, ctx.currentrettype, ctx.currentrettypenode = saved
+        ctx.builder, ctx.symtable, ctx.vartypes, ctx.currentrettype, ctx.currentrettypenode = saved
         return func
 
 class ParamNode:
@@ -314,11 +343,14 @@ class ExternFunctionNode(Node):
         fnty = ir.FunctionType(self.rettype.resolve(ctx), paramtypes, var_arg=self.variadic)
         func = ir.Function(ctx.module, fnty, name=self.name)
         ctx.funcs[self.name] = func
+        ctx.funcrettypes[self.name] = self.rettype
         return func
 
 class CallNode(Node):
-    def __init__(self, name, args, argtypes=None):
-        self.name, self.args, self.argtypes = name, args, argtypes
+    def __init__(self, name, args):
+        self.name, self.args = name, args
+
+    def restype(self, ctx): return ctx.funcrettypes.get(self.name)
 
     def codegen(self, ctx):
         if self.name not in ctx.funcs: raise Exception(f"Undefined function: {self.name}")
@@ -329,7 +361,7 @@ class CallNode(Node):
         for i, a in enumerate(self.args):
             val = a.codegen(ctx)
             if fnty.var_arg and i >= numfixed:
-                argtype = self.argtypes[i] if self.argtypes and i < len(self.argtypes) else None
+                argtype = a.restype(ctx)
                 if isinstance(val.type, ir.FloatType):
                     val = ctx.builder.fpext(val, ir.DoubleType())
                 elif isinstance(val.type, ir.IntType) and val.type.width < 32:
@@ -364,6 +396,7 @@ class StructNode(Node):
         structty.set_body(*(f.fieldtype.resolve(ctx) for f in self.fields))
         ctx.types[self.name] = structty
         ctx.structfields[self.name] = [f.name for f in self.fields]
+        ctx.structfieldtypes[self.name] = [f.fieldtype for f in self.fields]
         return structty
 
 class StructLiteralNode(Node):
@@ -382,6 +415,10 @@ class FieldAccessNode(Node):
     def __init__(self, obj, field): self.obj, self.field = obj, field
     def fieldindex(self, ctx, structname): return ctx.structfields[structname].index(self.field)
     def codegen(self, ctx): return ctx.builder.load(self.codegenptr(ctx))
+    def restype(self, ctx):
+        objtype = self.obj.restype(ctx)
+        if objtype is None or objtype.name not in ctx.structfieldtypes: return None
+        return ctx.structfieldtypes[objtype.name][self.fieldindex(ctx, objtype.name)]
     def codegenptr(self, ctx):
         objptr = self.obj.codegenptr(ctx)
         idx = self.fieldindex(ctx, objptr.type.pointee.name)
@@ -411,6 +448,9 @@ class DerefNode(Node):
     def __init__(self, target): self.target = target
     def codegen(self, ctx): return ctx.builder.load(self.target.codegen(ctx))
     def codegenptr(self, ctx): return self.target.codegen(ctx)
+    def restype(self, ctx):
+        t = self.target.restype(ctx)
+        return t.elemtype() if t is not None else None
 
 # program root
 class ProgramNode(Node):
