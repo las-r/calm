@@ -188,14 +188,3 @@ P.F        access field F of P
 @X         address-of X
 #P         dereference pointer P
 ```
-
-## Hello World
-```
-;use io
-
-def i32 main() {
-    printf("Hello, world!\n")
-
-    return 0
-}
-```
