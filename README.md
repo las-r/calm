@@ -29,15 +29,17 @@ Statements are not separated by semicolons or newlines, whitespace is insignific
 
 ### Variables
 Variable declarations require an explicit type, and are optionally initialized:
-```
+```rs
 i32 x = 10
 f64 pi = 3.14
 [i32] nums = ...
 ```
+
 Reassigning an existing variable omits the type:
-```
+```rs
 x = 20
 ```
+
 An assignment target can be a name, a field (`P.field = X`), an index (`P:0 = X`), or a dereferenced pointer (`#P = X`).
 
 ### Operators
@@ -50,7 +52,7 @@ There is no operator precedence. Parentheses are the only way to control groupin
 
 ## Control Flow
 ### Conditionals
-```
+```rs
 if x > 0 {
     printf("positive\n")
 } else if x == 0 {
@@ -59,10 +61,11 @@ if x > 0 {
     printf("negative\n")
 }
 ```
+
 `else if` and `else` are both optional; `else if` branches may chain any number of times.
 
 ### Loops
-```
+```rs
 i32 i = 0
 while i < 5 {
     printf("%d\n", i)
@@ -74,7 +77,7 @@ while i < 5 {
 
 ## Functions
 A function declaration gives its return type first, then its name, then a typed parameter list:
-```
+```rs
 def i32 add(i32 a, i32 b) {
     return a + b
 }
@@ -84,9 +87,10 @@ A bare `return` (only valid for `void` functions) is one immediately followed by
 
 ### External (C) Functions
 Functions implemented outside CALM are declared with `extc def`, using only a type/name signature. A trailing `...` marks the function as variadic (e.g. for `printf`):
-```
+```rs
 extc def i32 printf(i32 f, ...)
 ```
+
 Arguments passed for the `...` are promoted per C calling convention: integers narrower than 32 bits are widened to `i32` (sign- or zero-extended per their type), and `f32` values are widened to `f64`.
 
 ## Types
@@ -102,26 +106,27 @@ There is no dedicated boolean type. Comparisons and logic operators produce an i
 
 ### Chars
 A char is written `` `C `` and has type `u8`:
-```
+```rs
 u8 i = `A
 ```
+
 Unlike strings, char literals don't support escape sequences, `` `\n `` is the two characters `\` and `n`, not a newline.
 
 ### Strings
 Strings can be defined with `[u8] V = "..."` and have type `[u8]`, e.g.:
-```
+```rs
 [u8] msg = "Hello, world!"
 ```
 
 ### Arrays
 Arrays can be defined with `<t>[L] = B`, e.g.:
-```
+```rs
 i32[4] nums = {0, 1, 2, 3}
 ```
 
 ### Structs
 A struct is declared with typed fields and constructed with a brace literal listing values positionally, in field-declaration order. A struct must be declared before any use of its type (no forward references):
-```
+```rs
 struct Point {
     i32 x,
     i32 y
@@ -132,7 +137,7 @@ Point p = {3, 4}  // the struct name is optional in declarations if the variable
 ```
 
 Fields are accessed with `.`:
-```
+```rs
 p.x = 5
 ```
 
@@ -140,7 +145,7 @@ p.x = 5
 * `@X` - address-of: takes a pointer to `X`.
 * `#P` - dereference: reads (or, as an assignment target, writes) the value `P` points to.
 
-```
+```rs
 i32 x = 10
 [i32] p = @x
 #p = 20   // x is now 20
@@ -148,11 +153,12 @@ i32 x = 10
 
 ## Slices & Indexing
 Slices are written `[<t>]` and indexed with `:`:
-```
+```rs
 [i32] nums = ...
 i32 first = nums:0
 nums:1 = 99
 ```
+
 No bounds checking is performed. An out-of-range index is undefined behavior.
 
 ## Module Imports
