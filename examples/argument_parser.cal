@@ -1,0 +1,11 @@
+;use io
+
+def i32 main(i32 argc, [[u8]] argv) {
+    i32 i = 0
+    while i < argc {
+        printf("Argument %d: %s\n", i, argv:i)
+        i = i + 1
+    }
+
+    return 0
+}
