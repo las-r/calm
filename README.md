@@ -19,8 +19,8 @@ calm build yourfile.cal --llvmir # builds exe and saves .ll file
 
 ## Syntax & Basics
 ### Comments
-```
-// This is a comment!
+```zig
+// this is a comment
 ```
 Only single-line comments are supported; there is no block-comment syntax.
 
@@ -29,14 +29,14 @@ Statements are not separated by semicolons or newlines, whitespace is insignific
 
 ### Variables
 Variable declarations require an explicit type, and are optionally initialized:
-```rs
+```zig
 i32 x = 10
 f64 pi = 3.14
 [i32] nums = ...
 ```
 
 Reassigning an existing variable omits the type:
-```rs
+```zig
 x = 20
 ```
 
@@ -52,7 +52,7 @@ There is no operator precedence. Parentheses are the only way to control groupin
 
 ## Control Flow
 ### Conditionals
-```rs
+```zig
 if x > 0 {
     printf("positive\n")
 } else if x == 0 {
@@ -65,7 +65,7 @@ if x > 0 {
 `else if` and `else` are both optional; `else if` branches may chain any number of times.
 
 ### Loops
-```rs
+```zig
 i32 i = 0
 while i < 5 {
     printf("%d\n", i)
@@ -77,7 +77,7 @@ while i < 5 {
 
 ## Functions
 A function declaration gives its return type first, then its name, then a typed parameter list:
-```rs
+```zig
 def i32 add(i32 a, i32 b) {
     return a + b
 }
@@ -87,7 +87,7 @@ A bare `return` (only valid for `void` functions) is one immediately followed by
 
 ### External (C) Functions
 Functions implemented outside CALM are declared with `extc def`, using only a type/name signature. A trailing `...` marks the function as variadic (e.g. for `printf`):
-```rs
+```zig
 extc def i32 printf(i32 f, ...)
 ```
 
@@ -106,7 +106,7 @@ There is no dedicated boolean type. Comparisons and logic operators produce an i
 
 ### Chars
 A char is written `` `C `` and has type `u8`:
-```rs
+```zig
 u8 i = `A
 ```
 
@@ -114,19 +114,19 @@ Unlike strings, char literals don't support escape sequences, `` `\n `` is the t
 
 ### Strings
 Strings can be defined with `[u8] V = "..."` and have type `[u8]`, e.g.:
-```rs
+```zig
 [u8] msg = "Hello, world!"
 ```
 
 ### Arrays
 Arrays can be defined with `<t>[L] = B`, e.g.:
-```rs
+```zig
 i32[4] nums = {0, 1, 2, 3}
 ```
 
 ### Structs
 A struct is declared with typed fields and constructed with a brace literal listing values positionally, in field-declaration order. A struct must be declared before any use of its type (no forward references):
-```rs
+```zig
 struct Point {
     i32 x,
     i32 y
@@ -137,7 +137,7 @@ Point p = {3, 4}  // the struct name is optional in declarations if the variable
 ```
 
 Fields are accessed with `.`:
-```rs
+```zig
 p.x = 5
 ```
 
@@ -145,7 +145,7 @@ p.x = 5
 * `@X` - address-of: takes a pointer to `X`.
 * `#P` - dereference: reads (or, as an assignment target, writes) the value `P` points to.
 
-```rs
+```zig
 i32 x = 10
 [i32] p = @x
 #p = 20   // x is now 20
@@ -153,7 +153,7 @@ i32 x = 10
 
 ## Slices & Indexing
 Slices are written `[<t>]` and indexed with `:`:
-```rs
+```zig
 [i32] nums = ...
 i32 first = nums:0
 nums:1 = 99
@@ -163,7 +163,7 @@ No bounds checking is performed. An out-of-range index is undefined behavior.
 
 ## Module Imports
 CALM has two forms of `;use`, both of which must appear at the very top of the file, before any other code:
-```
+```zig
 ;use "utils.cal"   // import a local file, path relative to the importing file
 ;use io            // import a stdlib module (looked up in CALM's std/ directory)
 ```
