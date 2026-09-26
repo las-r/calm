@@ -97,7 +97,7 @@ def dtt():
     return f"{arch}-unknown-linux-gnu"
 
 # compiler
-def compilef(infile: Path, keep_llvmir: bool) -> Path:
+def compilef(infile: Path, keepllvmir: bool) -> Path:
     if not infile.is_file():
         print(f"error: no such file: {infile}", file=sys.stderr)
         sys.exit(1)
@@ -140,7 +140,7 @@ def compilef(infile: Path, keep_llvmir: bool) -> Path:
         print("clang build failed:", file=sys.stderr)
         print(result.stderr, file=sys.stderr)
         sys.exit(1)
-    if keep_llvmir:
+    if keepllvmir:
         print(f"LLVM IR: {llfile}")
     else:
         llfile.unlink()
@@ -156,24 +156,16 @@ def main():
     runparser = subparsers.add_parser("run", help="compile a .cal file, run it, then delete the executable")
     runparser.add_argument("file", help="path to the .cal source file")
     runparser.add_argument("--llvmir", action="store_true", help="keep the generated .ll file")
-    argparser.add_argument("bare_file", nargs="?", default=None, help=argparse.SUPPRESS)
-    argparser.add_argument("--llvmir", dest="bare_llvmir", action="store_true", help=argparse.SUPPRESS)
+    runparser.add_argument("extra", nargs=argparse.REMAINDER, help="extra arguments are passed into the executable")
     args = argparser.parse_args()
-
-    if args.command is None:
-        if args.bare_file is None:
-            argparser.print_usage(sys.stderr)
-            sys.exit(1)
-        command, file, llvmir = "build", args.bare_file, args.bare_llvmir
-    else:
-        command, file, llvmir = args.command, args.file, args.llvmir
+    command, file, llvmir = args.command, args.file, args.llvmir
 
     infile = Path(file).resolve()
-    exe = compilef(infile, keep_llvmir=llvmir)
+    exe = compilef(infile, keepllvmir=llvmir)
     if command == "build":
         print(f"Output: {exe}")
     elif command == "run":
-        result = subprocess.run([str(exe)])
+        result = subprocess.run([str(exe)] + args.extra)
         exe.unlink()
         sys.exit(result.returncode)
 
