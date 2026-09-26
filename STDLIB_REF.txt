@@ -41,7 +41,8 @@ mem
   void free([u8] ptr)                free a block
 
 os
-  void exit(i32 code)   terminate the program
+  void exit(i32 code)     terminate the program
+  void system([u8] cmd)   access the command terminal
 
 str
   i32  strcmp([u8] a, [u8] b)      0 if equal, <0 if a<b, >0 if a>b
