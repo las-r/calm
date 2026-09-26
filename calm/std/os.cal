@@ -1,1 +1,2 @@
+extc def void system([u8] cmd)
 extc def void exit(i32 code)
