@@ -171,26 +171,25 @@ CALM has two forms of `;use`, both of which must appear at the very top of the f
 Imports are textually resolved before compilation and share scope with the importing file. Each file is imported at most once.
 
 ## Grammar Reference
-```
-;use "F"                              import local file
-;use X                                import stdlib module
-<t> V = X                             variable declaration
-V = X                                 assignment
-P.F = X                               field assignment
-A:I = X                               index assignment
-#P = X                                pointer-write
-if X {...} else if Y {...} else {...} conditional (else/else-if optional)
-while X {...}                         loop
-break                                 exit innermost loop
-def <t> X(<t> Y, ...) {...}           function definition
-return X                              return from function (X optional)
-struct X {<t> Y, ...}                 struct definition
-T{X, Y, ...}                          struct literal
-extc def <t> X(<t> Y, ..., ...)       external function declaration (variadic optional)
-// COMMENT                            comment
+```zig
+;use "F"                              // import local file
+;use X                                // import stdlib module
+<t> V = X                             // variable declaration
+V = X                                 // assignment
+P.F = X                               // field assignment
+A:I = X                               // index assignment
+#P = X                                // pointer-write
+if X {...} else if Y {...} else {...} // conditional (else/else-if optional)
+while X {...}                         // loop
+break                                 // exit innermost loop
+def <t> X(<t> Y, ...) {...}           // function definition
+return X                              // return from function (X optional)
+struct X {<t> Y, ...}                 // struct definition
+T{X, Y, ...}                          // struct literal
+extc def <t> X(<t> Y, ..., ...)       // external function declaration (variadic optional)
 
-A:I        index into slice A
-P.F        access field F of P
-@X         address-of X
-#P         dereference pointer P
+A:I        // index into slice A
+P.F        // access field F of P
+@X         // address-of X
+#P         // dereference pointer P
 ```
